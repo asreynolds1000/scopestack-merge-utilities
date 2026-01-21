@@ -1328,57 +1328,46 @@
                     let childItems;
 
                     if (item.data.is_array) {
-                        // For arrays, extract unique array indices from children
-                        // Children look like: "language_fields[0].conclusion", "language_fields[1].conclusion", etc.
+                        // For arrays, use array_count to generate all indices
+                        // The structure extractor only extracts [0] as a template, but we know the count
                         const parentPath = item.path;
-                        const arrayIndices = new Set();
+                        const arrayCount = item.data.array_count || 0;
 
-                        Object.keys(item.data.children).forEach(childPath => {
-                            // Extract the array index from paths like "language_fields[0].field"
-                            const match = childPath.match(new RegExp(`^${parentPath.replace(/[[\]]/g, '\\$&')}\\[(\\d+)\\]`));
-                            if (match) {
-                                arrayIndices.add(parseInt(match[1]));
+                        // Get the template structure from [0]
+                        const templatePath = `${parentPath}[0]`;
+                        const templateChildren = {};
+                        Object.entries(item.data.children || {}).forEach(([childPath, childData]) => {
+                            if (childPath.startsWith(templatePath + '.')) {
+                                // Store with relative path (without the [0] prefix)
+                                const relativePath = childPath.replace(templatePath + '.', '');
+                                templateChildren[relativePath] = childData;
                             }
                         });
 
-                        if (arrayIndices.size > 0) {
-                            // Create virtual items for each array index
-                            childItems = Array.from(arrayIndices)
-                                .sort((a, b) => a - b)
-                                .map(index => {
-                                    const arrayItemPath = `${parentPath}[${index}]`;
-                                    // Collect all fields for this array index
-                                    const itemChildren = {};
-                                    Object.entries(item.data.children).forEach(([childPath, childData]) => {
-                                        if (childPath.startsWith(arrayItemPath + '.')) {
-                                            itemChildren[childPath] = childData;
-                                        }
-                                    });
-
-                                    // Try to find a display name from common identifying fields
-                                    let displayName = `[${index}]`;  // Fallback
-                                    const identifyingFields = ['name', 'title', 'label', 'code', 'id'];
-                                    for (const fieldName of identifyingFields) {
-                                        const fieldPath = `${arrayItemPath}.${fieldName}`;
-                                        if (itemChildren[fieldPath] && itemChildren[fieldPath].sample_value) {
-                                            displayName = itemChildren[fieldPath].sample_value;
-                                            break;
-                                        }
-                                    }
-
-                                    return {
-                                        path: arrayItemPath,
-                                        displayName: displayName,  // Add display name
-                                        data: {
-                                            type: 'object',
-                                            is_array: false,
-                                            children: itemChildren,
-                                            sample_value: `{${Object.keys(itemChildren).length} fields}`
-                                        }
-                                    };
+                        if (arrayCount > 0) {
+                            // Create items for each array index using the template structure
+                            childItems = Array.from({ length: arrayCount }, (_, index) => {
+                                const arrayItemPath = `${parentPath}[${index}]`;
+                                // Create children for this index based on template
+                                const itemChildren = {};
+                                Object.entries(templateChildren).forEach(([relativePath, childData]) => {
+                                    const fullPath = `${arrayItemPath}.${relativePath}`;
+                                    itemChildren[fullPath] = { ...childData, path: fullPath };
                                 });
+
+                                return {
+                                    path: arrayItemPath,
+                                    displayName: `[${index}]`,
+                                    data: {
+                                        type: 'object',
+                                        is_array: false,
+                                        children: itemChildren,
+                                        sample_value: `{${Object.keys(templateChildren).length} fields}`
+                                    }
+                                };
+                            });
                         } else {
-                            // No array items found - empty array
+                            // Empty array
                             childItems = [];
                         }
                     } else {
