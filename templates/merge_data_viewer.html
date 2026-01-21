@@ -1222,6 +1222,7 @@
         const VersionViewer = React.forwardRef(({ version, structure, onFieldSelect, highlightedPaths = [], searchTerm = '', mappings = [], onUnmap = null }, ref) => {
             const [columns, setColumns] = useState([]);
             const [selectedPath, setSelectedPath] = useState(null);
+            const [selectedData, setSelectedData] = useState(null);  // Store selected item data directly
             const [pathTrail, setPathTrail] = useState([]);
 
             useEffect(() => {
@@ -1237,6 +1238,8 @@
 
                 setColumns([{ items: rootItems, title: 'Root', parentPath: null }]);
                 setPathTrail([]);
+                setSelectedPath(null);
+                setSelectedData(null);
             }, [structure]);
 
             // Navigation function - reusable for both ref and internal use
@@ -1291,6 +1294,7 @@
 
                 // Trigger onFieldSelect for the target field
                 const targetData = structure[targetPath];
+                setSelectedData(targetData || null);  // Store the data directly
                 if (targetData && onFieldSelect) {
                     onFieldSelect(targetPath, targetData);
                 }
@@ -1314,6 +1318,7 @@
 
             const handleItemClick = (item, columnIndex) => {
                 setSelectedPath(item.path);
+                setSelectedData(item.data);  // Store the data directly
                 onFieldSelect && onFieldSelect(item.path, item.data);
 
                 // Build path trail
@@ -1421,7 +1426,7 @@
                 );
             }
 
-            const selectedData = selectedPath && structure[selectedPath];
+            // selectedData is now stored in state (set by handleItemClick/navigateToPath)
             const syntaxExamples = selectedData ? generateSyntaxExamples(selectedPath, selectedData, version) : [];
 
             // Helper to find mapping for a field path
