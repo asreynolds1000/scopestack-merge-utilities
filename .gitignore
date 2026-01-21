@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Flask
+instance/
+.webassets-cache
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+temp/
+*.docx.tmp
+session_data/
+document_cache/
+learned_mappings_db.json
+examples/*.docx
+examples/*.htm
+examples/*_files/
+
+# Keep temp folder but ignore contents
+temp/*
+!temp/.gitkeep

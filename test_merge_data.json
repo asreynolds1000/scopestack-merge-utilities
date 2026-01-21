@@ -1,0 +1,51 @@
+{
+  "data": {
+    "attributes": {
+      "content": {
+        "project": {
+          "name": "Test Project",
+          "client": "ACME Corp",
+          "start_date": "2024-01-15",
+          "budget": 50000,
+          "active": true,
+          "locations": [
+            {
+              "location_name": "New York Office",
+              "location_address": "123 Main St, New York, NY 10001",
+              "office_type": "Headquarters"
+            },
+            {
+              "location_name": "Boston Office",
+              "location_address": "456 Park Ave, Boston, MA 02101",
+              "office_type": "Branch"
+            },
+            {
+              "location_name": "Chicago Office",
+              "location_address": "789 Lake Dr, Chicago, IL 60601",
+              "office_type": "Branch"
+            }
+          ],
+          "project_pricing": {
+            "resources": [
+              {
+                "resource_name": "Senior Developer",
+                "hourly_rate": 150,
+                "quantity": 2
+              },
+              {
+                "resource_name": "Junior Developer",
+                "hourly_rate": 75,
+                "quantity": 3
+              },
+              {
+                "resource_name": "Project Manager",
+                "hourly_rate": 125,
+                "quantity": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
