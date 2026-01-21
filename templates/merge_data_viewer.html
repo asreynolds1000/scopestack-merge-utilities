@@ -2689,9 +2689,19 @@
             const text = document.getElementById('authText');
             const button = document.getElementById('authButton');
 
-            if (authenticated && account) {
+            // Check if we have valid auth - account can be truthy even if empty object
+            const hasValidAuth = authenticated && account && (account.email || account.account_slug || account.account_id);
+
+            if (hasValidAuth) {
                 indicator.classList.add('authenticated');
-                text.innerHTML = `<span class="auth-email">${account.email}</span>`;
+                const displayName = account.email || account.account_slug || 'Authenticated';
+                text.innerHTML = `<span class="auth-email">${displayName}</span>`;
+                button.textContent = 'Logout';
+                button.onclick = performLogout;
+            } else if (authenticated) {
+                // Authenticated but no account info yet - show as authenticated
+                indicator.classList.add('authenticated');
+                text.innerHTML = `<span class="auth-email">Authenticated</span>`;
                 button.textContent = 'Logout';
                 button.onclick = performLogout;
             } else {
