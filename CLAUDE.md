@@ -97,11 +97,29 @@ SECRET_KEY=your_flask_secret_key  # For production Flask sessions
 - **Session cache**: `./document_cache/`
 - **Temp files**: `./temp/`
 
-## Deployment (Railway/Render)
+## Deployment (Railway)
 
-The app is configured for deployment with:
+The app is configured for Railway deployment with:
 - `Procfile` - Runs gunicorn on the `$PORT` environment variable
 - `runtime.txt` - Specifies Python 3.11.7
+
+### Railway CLI Commands
+```bash
+# Check deployment status
+railway status
+
+# View deployment logs
+railway logs
+
+# Deploy manually (auto-deploys on git push)
+railway up
+
+# Set environment variables
+railway variables set KEY=value
+
+# Open deployed app
+railway open
+```
 
 ### Required Environment Variables
 ```bash
@@ -117,3 +135,16 @@ When `APP_PASSWORD` is set, all routes require HTTP Basic Auth:
 - Password: value of `APP_PASSWORD`
 
 If `APP_PASSWORD` is not set, no authentication is required (local development mode).
+
+## Testing
+
+```bash
+# Install dev dependencies
+pip3 install -r requirements-dev.txt
+
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=. --cov-report=term-missing
+```

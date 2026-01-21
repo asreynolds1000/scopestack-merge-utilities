@@ -186,6 +186,33 @@ def logout():
     return jsonify({'success': True})
 
 
+@app.route('/api/auth/refresh-account', methods=['POST'])
+def refresh_account():
+    """Refresh account info from /v1/me - useful when switching accounts in ScopeStack"""
+    if not auth_manager.is_authenticated():
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    access_token = auth_manager.get_access_token()
+    if not access_token:
+        return jsonify({'error': 'Could not get access token'}), 401
+
+    # Fetch fresh account info from /me
+    user_info = auth_manager.get_user_info(access_token)
+    if not user_info.get('account_slug'):
+        return jsonify({'error': 'Could not fetch account info from ScopeStack'}), 500
+
+    # Update stored tokens with new account info
+    auth_manager.tokens['email'] = user_info.get('email') or auth_manager.tokens.get('email')
+    auth_manager.tokens['account_slug'] = user_info.get('account_slug')
+    auth_manager.tokens['account_id'] = user_info.get('account_id')
+    auth_manager.save_tokens()
+
+    return jsonify({
+        'success': True,
+        'account': auth_manager.get_account_info()
+    })
+
+
 # ==================== OAuth Authorization Code Flow Routes ====================
 
 @app.route('/oauth/authorize')

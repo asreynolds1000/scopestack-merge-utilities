@@ -1016,12 +1016,20 @@
                         Status: <span id="settingsAuthStatus" style="font-weight: bold;">Not authenticated</span>
                         <span id="settingsAuthType" style="font-size: 11px; color: #999; margin-left: 8px;"></span>
                     </p>
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <button onclick="window.location.href='/oauth/authorize'" class="btn-sso" style="flex: 2; padding: 10px 16px; font-size: 14px;">
                             Login with SSO
                         </button>
                         <button onclick="showLogin(); closeSettings();" class="btn-secondary" style="flex: 1; padding: 10px 16px; font-size: 13px;">
                             Service Account
+                        </button>
+                    </div>
+                    <div id="settingsAccountActions" style="display: none; gap: 8px;">
+                        <button onclick="refreshAccount()" class="btn-secondary" style="flex: 1; padding: 8px 16px; font-size: 13px;">
+                            Refresh Account
+                        </button>
+                        <button onclick="performLogout(); closeSettings();" class="btn-secondary" style="flex: 1; padding: 8px 16px; font-size: 13px;">
+                            Logout
                         </button>
                     </div>
                 </div>
@@ -1888,6 +1896,7 @@ Example: 'The customer name field is still not mapping correctly' or 'Focus on f
             const button = document.getElementById('authButton');
             const settingsAuthStatus = document.getElementById('settingsAuthStatus');
             const settingsAuthType = document.getElementById('settingsAuthType');
+            const settingsAccountActions = document.getElementById('settingsAccountActions');
 
             if (authenticated && account) {
                 indicator.classList.add('authenticated');
@@ -1904,6 +1913,9 @@ Example: 'The customer name field is still not mapping correctly' or 'Focus on f
                 if (settingsAuthType && account.auth_type) {
                     const authTypeLabel = account.auth_type === 'authorization_code' ? '(SSO)' : '(Service Account)';
                     settingsAuthType.textContent = authTypeLabel;
+                }
+                if (settingsAccountActions) {
+                    settingsAccountActions.style.display = 'flex';
                 }
 
                 // Update validation section
@@ -1928,6 +1940,9 @@ Example: 'The customer name field is still not mapping correctly' or 'Focus on f
                 }
                 if (settingsAuthType) {
                     settingsAuthType.textContent = '';
+                }
+                if (settingsAccountActions) {
+                    settingsAccountActions.style.display = 'none';
                 }
 
                 // Update validation section
@@ -1993,6 +2008,25 @@ Example: 'The customer name field is still not mapping correctly' or 'Focus on f
                     showAlert('success', 'Successfully logged out');
                 } else {
                     showAlert('error', 'Logout failed');
+                }
+            } catch (error) {
+                showAlert('error', 'Network error: ' + error.message);
+            }
+        }
+
+        async function refreshAccount() {
+            try {
+                const response = await fetch('/api/auth/refresh-account', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    updateAuthUI(true, data.account);
+                    showAlert('success', 'Account refreshed: ' + (data.account.account_slug || data.account.email));
+                } else {
+                    showAlert('error', data.error || 'Failed to refresh account');
                 }
             } catch (error) {
                 showAlert('error', 'Network error: ' + error.message);
