@@ -234,10 +234,17 @@ def oauth_authorize():
     if not redirect_uri:
         redirect_uri = request.host_url.rstrip('/') + '/oauth/callback'
 
+    # Store return URL so we can redirect back after login
+    return_url = request.referrer or '/'
+    # Make sure we don't redirect to the authorize URL itself
+    if '/oauth/' in return_url:
+        return_url = '/'
+
     # Store in session for verification on callback
     session['oauth_state'] = state
     session['oauth_code_verifier'] = code_verifier
     session['oauth_redirect_uri'] = redirect_uri
+    session['oauth_return_url'] = return_url
 
     # Build and redirect to authorization URL
     auth_url = auth_manager.get_authorization_url(redirect_uri, state, code_challenge)
@@ -281,14 +288,17 @@ def oauth_callback():
     # Exchange code for tokens
     result = auth_manager.exchange_code_for_tokens(code, redirect_uri, code_verifier)
 
+    # Get return URL before clearing session data
+    return_url = session.pop('oauth_return_url', '/')
+
     # Clear OAuth session data
     session.pop('oauth_state', None)
     session.pop('oauth_code_verifier', None)
     session.pop('oauth_redirect_uri', None)
 
     if result.get('success'):
-        # Redirect to home with success indicator
-        return redirect('/')
+        # Redirect to where user was before login
+        return redirect(return_url)
     else:
         return render_template('oauth_error.html',
                                error='token_exchange_failed',
@@ -2695,9 +2705,18 @@ def cleanup_files():
         return jsonify({'error': f'Cleanup error: {str(e)}'}), 500
 
 
-@app.route('/api/debug/logs', methods=['GET'])
+@app.route('/api/debug/logs', methods=['GET', 'DELETE'])
 def get_debug_logs():
-    """Get API debug logs for troubleshooting"""
+    """Get or clear API debug logs for troubleshooting"""
+    if request.method == 'DELETE':
+        # Clear logs
+        try:
+            api_logger.clear()
+            return jsonify({'success': True, 'message': 'Logs cleared'})
+        except Exception as e:
+            return jsonify({'error': f'Error clearing logs: {str(e)}'}), 500
+
+    # GET - return logs
     try:
         limit = request.args.get('limit', type=int)
         logs = api_logger.get_logs(limit=limit)
@@ -4237,7 +4256,19 @@ def get_merge_data_structure(project_id):
                     v1_data,
                     strip_prefix="data.attributes.content."
                 )
+                # Log the V1 fetch for debug console
+                api_logger.log(
+                    method='GET',
+                    url=f"ScopeStack API: V1 merge data for project {project_id}",
+                    response_status=200,
+                    response_body=f"[{len(v1_structure)} fields extracted]"
+                )
             except Exception as e:
+                api_logger.log(
+                    method='GET',
+                    url=f"ScopeStack API: V1 merge data for project {project_id}",
+                    error=str(e)
+                )
                 return jsonify({'error': f'Failed to fetch v1 merge data: {str(e)}'}), 500
 
         # Only fetch V2 if needed
@@ -4248,7 +4279,19 @@ def get_merge_data_structure(project_id):
                     v2_data,
                     strip_prefix="data.attributes.content."
                 )
+                # Log the V2 fetch for debug console
+                api_logger.log(
+                    method='GET',
+                    url=f"ScopeStack API: V2 merge data for project {project_id}",
+                    response_status=200,
+                    response_body=f"[{len(v2_structure)} fields extracted]"
+                )
             except Exception as e:
+                api_logger.log(
+                    method='GET',
+                    url=f"ScopeStack API: V2 merge data for project {project_id}",
+                    error=str(e)
+                )
                 return jsonify({'error': f'Failed to fetch v2 merge data: {str(e)}'}), 500
 
         # Get all mappings from learning system database
@@ -4353,6 +4396,15 @@ def save_manual_mapping():
 
         # Get the saved mapping back
         saved_mapping = mapping_db.get_mapping(v1_field)
+
+        # Log the mapping save for debug console
+        api_logger.log(
+            method='POST',
+            url='/api/save-manual-mapping',
+            payload={'v1_field': v1_field, 'v2_field': v2_field},
+            response_status=200,
+            response_body=f"Mapping saved: {v1_field} → {v2_field}"
+        )
 
         return jsonify({
             'success': True,
@@ -4474,11 +4526,25 @@ def delete_mapping(v1_field):
         deleted = mapping_db.delete_mapping(v1_field)
 
         if deleted:
+            # Log the deletion for debug console
+            api_logger.log(
+                method='DELETE',
+                url=f'/api/mapping/{v1_field}',
+                response_status=200,
+                response_body=f"Mapping for '{v1_field}' deleted"
+            )
             return jsonify({
                 'success': True,
                 'message': f'Mapping for "{v1_field}" deleted successfully'
             })
         else:
+            # Log the failed deletion for debug console
+            api_logger.log(
+                method='DELETE',
+                url=f'/api/mapping/{v1_field}',
+                response_status=404,
+                response_body=f"No mapping found for '{v1_field}'"
+            )
             return jsonify({
                 'success': False,
                 'error': f'No mapping found for "{v1_field}"'
@@ -4536,6 +4602,16 @@ def get_recent_projects():
         }
 
         response = requests.get(url, headers=headers, params=params, timeout=30)
+
+        # Log the API call for debug console
+        api_logger.log(
+            method='GET',
+            url=url,
+            headers=headers,
+            response_status=response.status_code,
+            response_body=f"[{len(response.json().get('data', []))} projects returned]" if response.status_code == 200 else response.text[:500]
+        )
+
         response.raise_for_status()
 
         data = response.json()
@@ -4643,6 +4719,16 @@ def search_projects():
         }
 
         response = requests.get(url, headers=headers, params=params, timeout=30)
+
+        # Log the API call for debug console
+        api_logger.log(
+            method='GET',
+            url=f"{url}?q={query}",
+            headers=headers,
+            response_status=response.status_code,
+            response_body=f"[{len(response.json().get('data', []))} projects matched]" if response.status_code == 200 else response.text[:500]
+        )
+
         response.raise_for_status()
 
         data = response.json()

@@ -287,7 +287,7 @@
     // Learning stats (may be overridden by page-specific implementation)
     async function refreshLearningStats() {
         try {
-            const response = await fetch('/api/learning/stats');
+            const response = await fetch('/api/learning-stats');
             const data = await response.json();
             const content = document.getElementById('learningStatsContent');
             if (content && data) {

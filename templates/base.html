@@ -100,6 +100,13 @@
             font-weight: 600;
         }
 
+        .auth-account {
+            color: #888;
+            font-weight: 400;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+
         .btn-small {
             padding: 6px 14px;
             font-size: 13px;
@@ -359,15 +366,26 @@
                 if (isAuthenticated) {
                     indicator.classList.add('authenticated');
                     if (accountInfo) {
-                        authText.innerHTML = '<span class="auth-email">' + (accountInfo.email || accountInfo.name || 'Authenticated') + '</span>';
+                        // Show email and account info
+                        let displayText = accountInfo.email || accountInfo.name || 'Authenticated';
+                        if (accountInfo.account_slug || accountInfo.account_id) {
+                            const accountParts = [];
+                            if (accountInfo.account_slug) accountParts.push(accountInfo.account_slug);
+                            if (accountInfo.account_id) accountParts.push('#' + accountInfo.account_id);
+                            displayText += ' <span class="auth-account">(' + accountParts.join(' ') + ')</span>';
+                        }
+                        authText.innerHTML = '<span class="auth-email">' + displayText + '</span>';
                     } else {
                         authText.textContent = 'Authenticated';
                     }
-                    authButton.textContent = 'Switch Account';
+                    // Change button to Logout
+                    authButton.textContent = 'Logout';
+                    authButton.onclick = performLogout;
                 } else {
                     indicator.classList.remove('authenticated');
                     authText.textContent = 'Not authenticated';
                     authButton.textContent = 'Login';
+                    authButton.onclick = showLogin;
                 }
             }
         }

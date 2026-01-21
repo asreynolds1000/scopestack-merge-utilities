@@ -119,6 +119,7 @@
             overflow: hidden;
             height: calc(100vh - 200px);
             min-height: 500px;
+            position: relative;
         }
 
         .version-header {
@@ -286,17 +287,18 @@
 
         /* Floating detail panel styles */
         .detail-panel-floating {
-            position: fixed;
+            position: absolute;
             right: 0;
-            top: 50px;
+            top: 0;
             width: 320px;
-            height: calc(100vh - 50px);
+            height: 100%;
             background: white;
             box-shadow: -4px 0 20px rgba(0,0,0,0.15);
             transform: translateX(100%);
             transition: transform 0.3s ease;
             z-index: 200;
             overflow-y: auto;
+            border-radius: 0 8px 8px 0;
         }
 
         .detail-panel-floating.open {
@@ -1852,10 +1854,11 @@
                 }
             };
 
-            const loadMergeData = async (overrideProjectId = null, viewToLoad = null) => {
+            const loadMergeData = async (overrideProjectId = null, viewToLoad = null, overrideFullDataMode = null) => {
                 const idToLoad = overrideProjectId || projectId;
                 const view = viewToLoad || viewMode;
-                console.log('loadMergeData called, projectId:', idToLoad, 'view:', view);
+                const useFullData = overrideFullDataMode !== null ? overrideFullDataMode : fullDataMode;
+                console.log('loadMergeData called, projectId:', idToLoad, 'view:', view, 'fullData:', useFullData);
                 if (!idToLoad || !idToLoad.toString().trim()) {
                     setError('Please enter a project ID');
                     return;
@@ -1890,7 +1893,7 @@
                 setError(null);
 
                 try {
-                    const url = `/api/merge-data-structure/${idToLoad}?view=${actualView}&full_data=${fullDataMode}`;
+                    const url = `/api/merge-data-structure/${idToLoad}?view=${actualView}&full_data=${useFullData}`;
                     console.log('Fetching:', url);
                     const response = await fetch(url);
                     const result = await response.json();
@@ -2274,11 +2277,17 @@
                                 type="checkbox"
                                 checked={fullDataMode}
                                 onChange={(e) => {
-                                    setFullDataMode(e.target.checked);
+                                    const newMode = e.target.checked;
+                                    setFullDataMode(newMode);
                                     // Clear loaded data so it reloads with new mode
                                     setV1Loaded(false);
                                     setV2Loaded(false);
                                     setData(null);
+                                    // Auto-reload if we have a project ID
+                                    if (projectId) {
+                                        // Use setTimeout to ensure state updates before reload
+                                        setTimeout(() => loadMergeData(projectId, null, newMode), 0);
+                                    }
                                 }}
                                 style={{ cursor: 'pointer' }}
                             />
@@ -2334,7 +2343,7 @@
                             <h3>Loading merge data...</h3>
                             <p>Fetching structures from ScopeStack API</p>
                             <p style={{ fontSize: '11px', color: '#999', marginTop: '10px' }}>This may take 30-60 seconds for large projects</p>
-                            <div style={{ marginTop: '15px' }}>
+                            <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'center' }}>
                                 <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden' }}>
                                     <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #667eea, #764ba2)', animation: 'loading-bar 1.5s ease-in-out infinite' }}></div>
                                 </div>
