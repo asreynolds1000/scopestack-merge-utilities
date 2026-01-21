@@ -4540,7 +4540,7 @@ def get_recent_projects():
         for item in data.get('data', []):
             attrs = item.get('attributes', {})
             project_id = item.get('id')
-            name = attrs.get('name', 'Unnamed Project')
+            name = attrs.get('project-name', 'Unnamed Project')
             client_name = attrs.get('client-name', 'Unknown Client')
             # Try created-at, fall back to updated-at
             created_at = attrs.get('created-at', '') or attrs.get('updated-at', '')
@@ -4647,7 +4647,7 @@ def search_projects():
         for item in data.get('data', []):
             attrs = item.get('attributes', {})
             project_id = item.get('id')
-            name = attrs.get('name', 'Unnamed Project')
+            name = attrs.get('project-name', 'Unnamed Project')
             client_name = attrs.get('client-name', 'Unknown Client')
             # Try created-at, fall back to updated-at
             created_at = attrs.get('created-at', '') or attrs.get('updated-at', '')
