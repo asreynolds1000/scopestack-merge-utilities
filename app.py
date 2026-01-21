@@ -121,6 +121,16 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+@app.route('/debug-env')
+def debug_env():
+    """Debug endpoint to check environment variables"""
+    app_pass = os.environ.get('APP_PASSWORD')
+    return jsonify({
+        'APP_PASSWORD_SET': app_pass is not None and len(app_pass) > 0,
+        'APP_PASSWORD_LENGTH': len(app_pass) if app_pass else 0,
+        'APP_PASSWORD_FIRST_CHAR': app_pass[0] if app_pass else None
+    })
+
 @app.route('/')
 def index():
     """Main page"""
