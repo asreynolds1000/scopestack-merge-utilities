@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}ScopeStack Merge Data and Document Utility{% endblock %}
+
+{% block extra_styles %}
+    .hero {
+        text-align: center;
+        padding: 60px 20px 40px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .hero h1 {
+        font-size: 32px;
+        color: #333;
+        margin-bottom: 16px;
+    }
+
+    .hero p {
+        font-size: 18px;
+        color: #666;
+        line-height: 1.6;
+    }
+
+    .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 24px;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 20px 60px;
+    }
+
+    .tool-card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        border: 2px solid transparent;
+    }
+
+    .tool-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+        border-color: #667eea;
+    }
+
+    .tool-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+    }
+
+    .tool-card h2 {
+        font-size: 22px;
+        color: #333;
+        margin-bottom: 12px;
+    }
+
+    .tool-card p {
+        color: #666;
+        font-size: 15px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+
+    .tool-features {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .tool-features li {
+        padding: 8px 0;
+        color: #555;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .tool-features li::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        background: #667eea;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .tool-card-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #667eea;
+        font-weight: 600;
+        font-size: 14px;
+        margin-top: 16px;
+    }
+
+    .tool-card-action::after {
+        content: '→';
+        transition: transform 0.2s;
+    }
+
+    .tool-card:hover .tool-card-action::after {
+        transform: translateX(4px);
+    }
+{% endblock %}
+
+{% block content %}
+    <div class="hero">
+        <h1>ScopeStack Merge Data and Document Utility</h1>
+        <p>Tools for working with ScopeStack merge data and document templates. Convert templates between formats, explore data structures, and validate your configurations.</p>
+    </div>
+
+    <div class="tools-grid">
+        <a href="/converter" class="tool-card">
+            <div class="tool-icon">&#128221;</div>
+            <h2>Template Converter</h2>
+            <p>Convert Microsoft Word Mail Merge templates to ScopeStack's DocX Templater format with smart mapping suggestions.</p>
+            <ul class="tool-features">
+                <li>Convert v1 templates to v2 format</li>
+                <li>AI-powered iterative improvements</li>
+                <li>Learn mappings from live project data</li>
+                <li>Validate against real merge data</li>
+            </ul>
+            <span class="tool-card-action">Open Converter</span>
+        </a>
+
+        <a href="/data-viewer" class="tool-card">
+            <div class="tool-icon">&#128269;</div>
+            <h2>Merge Data Viewer</h2>
+            <p>Browse and explore ScopeStack merge data structures. Compare v1 and v2 data formats side by side.</p>
+            <ul class="tool-features">
+                <li>Miller Columns navigation</li>
+                <li>Side-by-side v1/v2 comparison</li>
+                <li>Syntax examples for both formats</li>
+                <li>Field path and mapping info</li>
+            </ul>
+            <span class="tool-card-action">Open Data Viewer</span>
+        </a>
+    </div>
+{% endblock %}

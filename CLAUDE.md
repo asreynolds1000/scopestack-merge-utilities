@@ -4,7 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ScopeStack Template Converter: Converts Microsoft Word Mail Merge templates to ScopeStack's DocX Templater format. Provides both a Flask web interface and CLI tool.
+**ScopeStack Merge Data and Document Utility**: Tools for working with ScopeStack merge data and document templates. Provides a Flask web interface with multiple tools and a CLI.
+
+## URL Structure
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Homepage | Tool cards linking to Converter and Data Viewer |
+| `/converter` | Template Converter | Convert v1 templates to v2, AI improvements, learn mappings |
+| `/data-viewer` | Merge Data Viewer | Browse v1/v2 merge data with Miller Columns UI |
+| `/merge-data-viewer` | Redirect (301) | Backwards compatibility redirect to `/data-viewer` |
 
 ## Commands
 
@@ -152,15 +161,52 @@ pytest --cov=. --cov-report=term-missing
 RUN_E2E_TESTS=1 pytest tests/test_e2e_data_viewer.py -v
 ```
 
+## Template Architecture
+
+Uses Jinja2 template inheritance with shared components:
+
+```
+templates/
+├── base.html                    # Base template with common CSS/JS, auth
+├── components/
+│   ├── auth_bar.html           # Nav links, auth status, settings button
+│   ├── login_modal.html        # SSO + email/password login
+│   └── settings_modal.html     # Auth + AI config + Debug console
+├── home.html                   # Homepage with tool cards
+├── converter.html              # Template Converter (extends base)
+├── data_viewer.html            # Merge Data Viewer (extends base)
+└── oauth_error.html            # OAuth error page
+```
+
+**Template inheritance pattern:**
+```jinja2
+{% extends 'base.html' %}
+{% block title %}Page Title{% endblock %}
+{% block extra_styles %}/* page CSS */{% endblock %}
+{% block content %}<!-- page HTML -->{% endblock %}
+{% block scripts %}<!-- page JS -->{% endblock %}
+```
+
+**Active page indicator:** Pass `active_page` to templates:
+```python
+render_template('converter.html', active_page='converter')
+```
+
 ## Data Viewer Patterns
 
-The Merge Data Viewer (`/merge-data-viewer`) uses React (via CDN) with a Miller Columns UI.
+The Merge Data Viewer (`/data-viewer`) uses React (via CDN) with a Miller Columns UI.
 
 ### Array Handling
 - `DataStructureExtractor` only extracts `[0]` as a template for arrays
 - `array_count` field tells the frontend how many items actually exist
 - Frontend dynamically generates paths for items `[1]`, `[2]`, etc. using `array_count`
 - **Critical**: When selecting dynamically generated items, store `selectedData` in React state instead of deriving it from `structure[path]` (since paths like `[5]` don't exist in structure)
+
+### Collapsible Detail Panel
+- Detail panel is a floating overlay that slides in from the right
+- Opens automatically when clicking any item
+- Close with X button; stays open while navigating until explicitly closed
+- State: `detailPanelOpen` controls visibility, `selectedData` stores item data
 
 ### OAuth SSO
 - Uses Authorization Code Flow with PKCE
@@ -174,3 +220,11 @@ When clicking on dynamically generated array items (index > 0), the detail pane 
 
 ### OAuth Redirect URI (2026-01-21)
 Railway terminates SSL at the load balancer, so `request.host_url` returns `http://` instead of `https://`. Always set `OAUTH_REDIRECT_URI` explicitly with the `https://` scheme for production deployments.
+
+### App Restructuring (2026-01-21)
+Restructured app with new homepage and template inheritance:
+- Homepage at `/` with tool cards for Converter and Data Viewer
+- Converter moved to `/converter`, Data Viewer to `/data-viewer`
+- Shared components extracted: auth_bar, login_modal, settings_modal
+- Base template (`base.html`) with common CSS, JS, and auth handling
+- 301 redirect from `/merge-data-viewer` to `/data-viewer` for backwards compatibility

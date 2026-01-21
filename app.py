@@ -4,7 +4,7 @@ ScopeStack Template Converter - Web Interface
 Flask-based web UI for easy template conversion
 """
 
-from flask import Flask, render_template, request, send_file, jsonify, session, Response
+from flask import Flask, render_template, request, send_file, jsonify, session, Response, redirect
 from werkzeug.utils import secure_filename
 from typing import Dict, List, Optional
 from functools import wraps
@@ -132,20 +132,27 @@ def debug_env():
     })
 
 @app.route('/')
-def index():
-    """Main page"""
-    # Check auth status to show in UI
-    auth_status = {
-        'authenticated': auth_manager.is_authenticated(),
-        'account_info': auth_manager.get_account_info() if auth_manager.is_authenticated() else None
-    }
-    return render_template('index.html', auth=auth_status)
+def home():
+    """Homepage with tool cards"""
+    return render_template('home.html', active_page='home')
+
+
+@app.route('/converter')
+def converter():
+    """Template Converter page"""
+    return render_template('converter.html', active_page='converter')
+
+
+@app.route('/data-viewer')
+def data_viewer():
+    """Merge Data Viewer page"""
+    return render_template('data_viewer.html', active_page='data_viewer')
 
 
 @app.route('/merge-data-viewer')
-def merge_data_viewer():
-    """Merge Data Viewer page"""
-    return render_template('merge_data_viewer.html')
+def merge_data_viewer_redirect():
+    """Redirect old URL to new URL"""
+    return redirect('/data-viewer', code=301)
 
 
 @app.route('/api/auth/status')
@@ -281,7 +288,7 @@ def oauth_callback():
 
     if result.get('success'):
         # Redirect to home with success indicator
-        return redirect('/?auth=success')
+        return redirect('/')
     else:
         return render_template('oauth_error.html',
                                error='token_exchange_failed',

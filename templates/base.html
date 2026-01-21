@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ScopeStack Utility{% endblock %}</title>
+    {% block head_scripts %}{% endblock %}
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Auth bar styles */
+        .auth-bar {
+            background: white;
+            padding: 10px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .auth-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .brand {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .brand:hover {
+            color: #5568d3;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-link {
+            padding: 6px 12px;
+            font-size: 13px;
+            color: #666;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .nav-link.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .auth-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auth-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+
+        .auth-indicator.authenticated {
+            background: #28a745;
+        }
+
+        .auth-text {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .auth-email {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .btn-small {
+            padding: 6px 14px;
+            font-size: 13px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-small:hover {
+            background: #e0e0e0;
+        }
+
+        /* Button styles */
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #5a6268;
+        }
+
+        .btn-primary {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        /* SSO Button Styles */
+        .btn-sso {
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .btn-sso:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Auth divider */
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .auth-divider span {
+            padding: 0 16px;
+            color: #999;
+            font-size: 13px;
+        }
+
+        /* Alert styles */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        /* Settings section */
+        .settings-section {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .settings-section h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        {% block extra_styles %}{% endblock %}
+    </style>
+</head>
+<body>
+    {% include 'components/auth_bar.html' %}
+    {% include 'components/login_modal.html' %}
+    {% include 'components/settings_modal.html' %}
+
+    {% block content %}{% endblock %}
+
+    <script>
+        // Common auth functions used across all pages
+        let isAuthenticated = false;
+        let accountInfo = null;
+
+        // Check authentication status on load
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                isAuthenticated = data.authenticated;
+                accountInfo = data.account;
+                updateAuthUI();
+            } catch (error) {
+                console.error('Failed to check auth status:', error);
+            }
+        }
+
+        function updateAuthUI() {
+            const indicator = document.getElementById('authIndicator');
+            const authText = document.getElementById('authText');
+            const authButton = document.getElementById('authButton');
+
+            if (indicator) {
+                if (isAuthenticated) {
+                    indicator.classList.add('authenticated');
+                    if (accountInfo) {
+                        authText.innerHTML = '<span class="auth-email">' + (accountInfo.email || accountInfo.name || 'Authenticated') + '</span>';
+                    } else {
+                        authText.textContent = 'Authenticated';
+                    }
+                    authButton.textContent = 'Switch Account';
+                } else {
+                    indicator.classList.remove('authenticated');
+                    authText.textContent = 'Not authenticated';
+                    authButton.textContent = 'Login';
+                }
+            }
+        }
+
+        // Login modal functions
+        function showLogin() {
+            document.getElementById('loginModal').classList.add('show');
+        }
+
+        function closeLogin() {
+            document.getElementById('loginModal').classList.remove('show');
+            // Clear form
+            const emailInput = document.getElementById('loginEmail');
+            const passwordInput = document.getElementById('loginPassword');
+            if (emailInput) emailInput.value = '';
+            if (passwordInput) passwordInput.value = '';
+            // Hide alert
+            const loginAlert = document.getElementById('loginAlert');
+            if (loginAlert) loginAlert.style.display = 'none';
+        }
+
+        async function performLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const loginAlert = document.getElementById('loginAlert');
+
+            if (!email || !password) {
+                if (loginAlert) {
+                    loginAlert.textContent = 'Please enter both email and password';
+                    loginAlert.className = 'alert alert-error';
+                    loginAlert.style.display = 'block';
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    closeLogin();
+                    isAuthenticated = true;
+                    accountInfo = data.account;
+                    updateAuthUI();
+                    // Trigger page-specific callback if defined
+                    if (typeof onLoginSuccess === 'function') {
+                        onLoginSuccess();
+                    }
+                } else {
+                    if (loginAlert) {
+                        loginAlert.textContent = data.error || 'Login failed';
+                        loginAlert.className = 'alert alert-error';
+                        loginAlert.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                if (loginAlert) {
+                    loginAlert.textContent = 'Connection error. Please try again.';
+                    loginAlert.className = 'alert alert-error';
+                    loginAlert.style.display = 'block';
+                }
+            }
+        }
+
+        // Settings modal functions
+        function showSettings() {
+            document.getElementById('settingsModal').classList.add('show');
+            updateSettingsAuthStatus();
+            // Trigger page-specific settings init if defined
+            if (typeof onSettingsOpen === 'function') {
+                onSettingsOpen();
+            }
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('show');
+        }
+
+        function updateSettingsAuthStatus() {
+            const statusEl = document.getElementById('settingsAuthStatus');
+            const actionsEl = document.getElementById('settingsAccountActions');
+
+            if (statusEl) {
+                if (isAuthenticated && accountInfo) {
+                    statusEl.textContent = accountInfo.email || accountInfo.name || 'Authenticated';
+                    statusEl.style.color = '#28a745';
+                    if (actionsEl) actionsEl.style.display = 'flex';
+                } else {
+                    statusEl.textContent = 'Not authenticated';
+                    statusEl.style.color = '#dc3545';
+                    if (actionsEl) actionsEl.style.display = 'none';
+                }
+            }
+        }
+
+        async function performLogout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                isAuthenticated = false;
+                accountInfo = null;
+                updateAuthUI();
+                updateSettingsAuthStatus();
+                // Trigger page-specific callback if defined
+                if (typeof onLogoutSuccess === 'function') {
+                    onLogoutSuccess();
+                }
+            } catch (error) {
+                console.error('Logout failed:', error);
+            }
+        }
+
+        async function refreshAccount() {
+            try {
+                const response = await fetch('/api/auth/refresh-account', { method: 'POST' });
+                const data = await response.json();
+                if (data.success && data.account) {
+                    accountInfo = data.account;
+                    updateAuthUI();
+                    updateSettingsAuthStatus();
+                }
+            } catch (error) {
+                console.error('Failed to refresh account:', error);
+            }
+        }
+
+        // Close modals when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('show');
+            }
+        });
+
+        // Check for auth success from OAuth callback
+        if (window.location.search.includes('auth=success')) {
+            // Remove the query param from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', checkAuthStatus);
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

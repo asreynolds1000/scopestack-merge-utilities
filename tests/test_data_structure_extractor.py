@@ -98,6 +98,32 @@ class TestArrayExtraction:
         assert structure["tags"]["array_count"] == 4
         assert structure["tags"]["item_type"] == "string"
 
+    def test_array_of_arrays(self):
+        """Verify arrays of arrays are extracted with nested array info."""
+        extractor = DataStructureExtractor()
+        data = {
+            "sentences": [
+                ["word1", "word2"],
+                ["word3", "word4", "word5"],
+                ["word6"]
+            ]
+        }
+
+        structure = extractor.extract_structure(data, strip_prefix="")
+
+        # Top-level array should show count
+        assert "sentences" in structure
+        assert structure["sentences"]["is_array"] is True
+        assert structure["sentences"]["array_count"] == 3
+        assert structure["sentences"]["item_type"] == "array"
+
+        # The template item [0] should be in children and be an array itself
+        assert "sentences[0]" in structure["sentences"]["children"]
+        nested = structure["sentences"]["children"]["sentences[0]"]
+        assert nested["is_array"] is True
+        assert nested["array_count"] == 2  # From first sentence
+        assert nested["item_type"] == "string"
+
 
 class TestTypeInference:
     """Test type inference for various data types."""

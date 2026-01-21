@@ -1,0 +1,3220 @@
+{% extends 'base.html' %}
+
+{% block title %}Merge Data Viewer - ScopeStack{% endblock %}
+
+{% block head_scripts %}
+    <!-- React and ReactDOM via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+{% endblock %}
+
+{% block extra_styles %}
+    /* Data Viewer specific styles */
+    body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: white;
+            padding: 12px 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 12px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 2px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .container {
+            max-width: 100%;
+            padding: 0 20px 20px 20px;
+            overflow-x: hidden;
+        }
+
+        .project-selector {
+            background: white;
+            padding: 12px 20px;
+            margin-top: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+            z-index: 100;
+        }
+
+        .project-selector label {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .project-selector input {
+            width: 150px;
+            padding: 6px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .project-selector button {
+            padding: 6px 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: 500;
+        }
+
+        .project-selector button:hover {
+            background: #5568d3;
+        }
+
+        .project-selector button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .viewers-container {
+            display: grid;
+            gap: 15px;
+            overflow: visible;
+        }
+
+        /* Wide screens: side by side */
+        @media (min-width: 1400px) {
+            .viewers-container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        /* Narrow screens: stacked */
+        @media (max-width: 1399px) {
+            .viewers-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .version-viewer {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: calc(100vh - 200px);
+            min-height: 500px;
+        }
+
+        .version-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .version-header.v2 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .breadcrumb {
+            background: #f8f9fa;
+            padding: 8px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .breadcrumb-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .breadcrumb-item.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .column-viewer {
+            display: flex;
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+            max-width: 100%;
+        }
+
+        .column {
+            flex: 0 0 auto;
+            min-width: 180px;
+            max-width: 250px;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column:last-child {
+            border-right: none;
+            flex: 1.5;
+            max-width: none;
+        }
+
+        .column-header {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .column-count {
+            font-size: 11px;
+            color: #999;
+            font-weight: normal;
+        }
+
+        .column-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .column-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .column-item:hover {
+            background: #f8f9fa;
+        }
+
+        .column-item.selected {
+            background: #e3f2fd;
+            border-left: 3px solid #2196f3;
+            padding-left: 9px;
+        }
+
+        .column-item.highlighted {
+            background: #fff9c4;
+            border-left: 3px solid #fbc02d;
+            padding-left: 9px;
+        }
+
+        .column-item.in-path {
+            background: #f3e5f5;
+            font-weight: 600;
+        }
+
+        .column-item.has-children::after {
+            content: '›';
+            margin-left: auto;
+            color: #999;
+            font-size: 16px;
+        }
+
+        .item-icon {
+            width: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+        }
+
+        .item-name {
+            flex: 1;
+            color: #333;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .item-type {
+            font-size: 10px;
+            color: #999;
+            background: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .item-type.array {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .item-type.object {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .detail-panel {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        /* Floating detail panel styles */
+        .detail-panel-floating {
+            position: fixed;
+            right: 0;
+            top: 50px;
+            width: 320px;
+            height: calc(100vh - 50px);
+            background: white;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 200;
+            overflow-y: auto;
+        }
+
+        .detail-panel-floating.open {
+            transform: translateX(0);
+        }
+
+        .detail-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .detail-panel-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .detail-panel-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .detail-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .detail-section {
+            margin-bottom: 15px;
+        }
+
+        .detail-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 12px;
+            color: #333;
+            padding: 6px 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .syntax-example {
+            background: #e8f5e9;
+            border-left: 3px solid #4caf50;
+            padding: 8px 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #2e7d32;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        .learn-mapping-btn {
+            width: 100%;
+            padding: 8px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .learn-mapping-btn:hover {
+            background: #45a049;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state h3 {
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border-left: 4px solid #c62828;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .stats-bar {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 25px;
+            font-size: 12px;
+            position: sticky;
+            bottom: 0;
+            z-index: 100;
+            margin-top: 12px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 11px;
+            text-align: center;
+        }
+
+        /* Auth bar styles */
+        .auth-bar {
+            background: white;
+            padding: 10px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .auth-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-link {
+            padding: 6px 12px;
+            font-size: 13px;
+            color: #666;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .nav-link.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .auth-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auth-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+
+        .auth-indicator.authenticated {
+            background: #28a745;
+        }
+
+        .auth-text {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .auth-email {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .btn-small {
+            padding: 6px 14px;
+            font-size: 13px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-small:hover {
+            background: #e0e0e0;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn-primary {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        /* SSO Button Styles */
+        .btn-sso {
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .btn-sso:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: #999;
+            font-size: 13px;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .auth-divider span {
+            padding: 0 12px;
+        }
+
+        .btn-secondary {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .settings-section {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .settings-section h3 {
+            font-size: 15px;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Navigation highlight animation */
+        .column-item.just-navigated {
+            animation: pulse-highlight 1.5s ease-out;
+        }
+
+        @keyframes pulse-highlight {
+            0% { background: #4caf50; transform: scale(1.02); }
+            50% { background: #a5d6a7; }
+            100% { background: inherit; transform: scale(1); }
+        }
+
+        @keyframes loading-bar {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(0%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Value match indicator */
+        .column-item.value-match {
+            background: #fff3e0;
+            border-left: 3px solid #ff9800;
+            padding-left: 9px;
+        }
+
+        .value-match-badge {
+            font-size: 9px;
+            padding: 1px 4px;
+            background: #ff9800;
+            color: white;
+            border-radius: 3px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 4px;
+        }
+
+        .value-match-badge.both {
+            background: #4caf50;
+        }
+
+        /* Single view mode */
+        .viewers-container.single-view {
+            grid-template-columns: 1fr !important;
+        }
+
+        .viewers-container.single-view .version-viewer {
+            height: calc(100vh - 180px);
+        }
+
+        /* Mapping indicators */
+        .column-item.has-mapping {
+            background: #f1f8e9;
+        }
+
+        .mapping-badge {
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: 600;
+            margin-left: 4px;
+            cursor: help;
+        }
+
+        .mapping-badge.high {
+            background: #4caf50;
+            color: white;
+        }
+
+        .mapping-badge.low {
+            background: #ffb300;
+            color: #333;
+        }
+
+        /* Mapping info in details panel */
+        .mapping-info {
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+        }
+
+        .mapping-info-header {
+            font-weight: 600;
+            color: #2e7d32;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mapping-info-detail {
+            font-size: 11px;
+            color: #555;
+            margin: 4px 0;
+        }
+
+        .mapping-info-detail code {
+            background: #c8e6c9;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+{% endblock %}
+
+{% block content %}
+    <!-- View Mappings Modal (page-specific) -->
+    <div class="modal" id="mappingsModal">
+        <div class="modal-content" style="max-width: 900px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+            <h2>Learned Mappings</h2>
+            <p style="margin-bottom: 15px;">All field mappings stored in the database.</p>
+
+            <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="mappingSearchInput" placeholder="Search mappings..." style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                <span id="mappingCount" style="font-size: 12px; color: #666;">0 mappings</span>
+            </div>
+
+            <div style="flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 6px;">
+                <table id="mappingsTable" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead style="position: sticky; top: 0; background: #f5f5f5;">
+                        <tr>
+                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortMappings('v1_field')">V1 Field ↕</th>
+                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortMappings('v2_field')">V2 Field ↕</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #ddd; cursor: pointer;" onclick="sortMappings('confidence')">Confidence ↕</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #ddd;">Source</th>
+                            <th style="padding: 10px; text-align: center; border-bottom: 2px solid #ddd;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mappingsTableBody">
+                        <tr><td colspan="5" style="padding: 20px; text-align: center; color: #666;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 15px; display: flex; justify-content: space-between;">
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" onclick="exportMappings()" style="background: #4caf50; color: white;">
+                        Export JSON
+                    </button>
+                    <button class="btn-secondary" onclick="document.getElementById('importFile').click()">
+                        Import JSON
+                    </button>
+                    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importMappings(this)">
+                </div>
+                <button class="btn-secondary" onclick="closeMappingsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="root"></div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {% raw %}
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useImperativeHandle } = React;
+
+        // Generate syntax examples for accessing a field
+        function generateSyntaxExamples(path, fieldData, version) {
+            const parts = path.split('.');
+            const examples = [];
+
+            if (version === 'v1') {
+                // Sablon syntax
+                if (fieldData.is_array) {
+                    const varName = parts[parts.length - 1].replace(/s$/, ''); // Singular form
+                    examples.push({
+                        label: 'Loop through array',
+                        syntax: `${path}:each(${varName}) ... :endEach`
+                    });
+                    examples.push({
+                        label: 'Access first item',
+                        syntax: `=${path}.first.property_name`
+                    });
+                } else if (fieldData.type === 'object') {
+                    examples.push({
+                        label: 'Access property',
+                        syntax: `=${path}.property_name`
+                    });
+                } else {
+                    examples.push({
+                        label: 'Display value',
+                        syntax: `=${path}`
+                    });
+                }
+            } else {
+                // DocX Templater syntax
+                if (fieldData.is_array) {
+                    examples.push({
+                        label: 'Loop through array',
+                        syntax: `{#${path}} ... {/${path}}`
+                    });
+                    examples.push({
+                        label: 'Access first item',
+                        syntax: `{${path}[0].property_name}`
+                    });
+                } else if (fieldData.type === 'object') {
+                    examples.push({
+                        label: 'Access property',
+                        syntax: `{${path}.property_name}`
+                    });
+                } else {
+                    examples.push({
+                        label: 'Display value',
+                        syntax: `{${path}}`
+                    });
+                }
+            }
+
+            return examples;
+        }
+
+        // Project Picker Component (Select2-style)
+        const ProjectPicker = ({ value, onChange, onSelect }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [projects, setProjects] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [searchTimeout, setSearchTimeout] = useState(null);
+            const dropdownRef = useRef(null);
+            const inputRef = useRef(null);
+
+            // Load recent projects on focus
+            const loadRecentProjects = async () => {
+                if (projects.length > 0 && !searchTerm) return; // Already loaded
+                setLoading(true);
+                try {
+                    const response = await fetch('/api/projects/recent');
+                    const data = await response.json();
+                    if (data.success) {
+                        setProjects(data.projects);
+                    }
+                } catch (err) {
+                    console.error('Error loading projects:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Search projects
+            const searchProjects = async (query) => {
+                if (!query.trim()) {
+                    loadRecentProjects();
+                    return;
+                }
+                setLoading(true);
+                try {
+                    const response = await fetch(`/api/projects/search?q=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        setProjects(data.projects);
+                    }
+                } catch (err) {
+                    console.error('Error searching projects:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Handle search input
+            const handleSearch = (e) => {
+                const query = e.target.value;
+                setSearchTerm(query);
+                onChange(query); // Also update the project ID input
+
+                // Debounce search
+                if (searchTimeout) clearTimeout(searchTimeout);
+                setSearchTimeout(setTimeout(() => {
+                    searchProjects(query);
+                }, 300));
+            };
+
+            // Handle project selection
+            const handleSelect = (project) => {
+                setSearchTerm(project.id);
+                onChange(project.id);
+                onSelect && onSelect(project);
+                setIsOpen(false);
+            };
+
+            // Close dropdown when clicking outside
+            useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                        setIsOpen(false);
+                    }
+                };
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
+            // Sync external value changes
+            useEffect(() => {
+                if (value !== searchTerm) {
+                    setSearchTerm(value);
+                }
+            }, [value]);
+
+            return (
+                <div className="project-picker" ref={dropdownRef} style={{ position: 'relative', width: '300px' }}>
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={searchTerm}
+                        onChange={handleSearch}
+                        onFocus={() => { setIsOpen(true); loadRecentProjects(); }}
+                        placeholder="Search projects or enter ID..."
+                        style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '2px solid #e0e0e0',
+                            borderRadius: '6px',
+                            fontSize: '13px'
+                        }}
+                    />
+                    {isOpen && (
+                        <div className="project-dropdown" style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            maxHeight: '300px',
+                            overflowY: 'auto',
+                            background: 'white',
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            zIndex: 1000,
+                            marginTop: '4px'
+                        }}>
+                            {loading && (
+                                <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
+                                    Loading projects...
+                                </div>
+                            )}
+                            {!loading && projects.length === 0 && (
+                                <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
+                                    {searchTerm ? 'No projects found' : 'Type to search or click to load recent'}
+                                </div>
+                            )}
+                            {!loading && projects.map((project) => (
+                                <div
+                                    key={project.id}
+                                    onClick={() => handleSelect(project)}
+                                    style={{
+                                        padding: '10px 12px',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid #f0f0f0',
+                                        fontSize: '12px'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#f5f5f5'}
+                                    onMouseLeave={(e) => e.target.style.background = 'white'}
+                                >
+                                    <div style={{ fontWeight: '600', color: '#333' }}>
+                                        {project.client_name} - {project.name}
+                                        {project.revenue ? <span style={{ color: '#28a745', marginLeft: '8px' }}>${project.revenue.toLocaleString()}</span> : null}
+                                    </div>
+                                    <div style={{ color: '#666', fontSize: '11px', marginTop: '2px' }}>
+                                        ID: {project.id} | {project.date_formatted || 'N/A'}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Single version viewer component
+        const VersionViewer = React.forwardRef(({ version, structure, onFieldSelect, highlightedPaths = [], searchTerm = '', mappings = [], onUnmap = null }, ref) => {
+            const [columns, setColumns] = useState([]);
+            const [selectedPath, setSelectedPath] = useState(null);
+            const [selectedData, setSelectedData] = useState(null);  // Store selected item data directly
+            const [pathTrail, setPathTrail] = useState([]);
+            const [detailPanelOpen, setDetailPanelOpen] = useState(false);  // Collapsible detail panel
+
+            useEffect(() => {
+                if (!structure || Object.keys(structure).length === 0) {
+                    setColumns([]);
+                    return;
+                }
+
+                // Get root-level items
+                const rootItems = Object.entries(structure)
+                    .filter(([path]) => !path.includes('.') && !path.includes('['))
+                    .map(([path, data]) => ({ path, data }));
+
+                setColumns([{ items: rootItems, title: 'Root', parentPath: null }]);
+                setPathTrail([]);
+                setSelectedPath(null);
+                setSelectedData(null);
+            }, [structure]);
+
+            // Navigation function - reusable for both ref and internal use
+            const navigateToPath = (targetPath) => {
+                // Split path and navigate through hierarchy
+                const parts = targetPath.split('.');
+                let currentPath = '';
+                const newColumns = [columns[0]]; // Start with root
+
+                for (let i = 0; i < parts.length; i++) {
+                    currentPath = currentPath ? `${currentPath}.${parts[i]}` : parts[i];
+                    const fieldData = structure[currentPath];
+
+                    if (fieldData && fieldData.children && Object.keys(fieldData.children).length > 0) {
+                        // Build children for this level
+                        let childItems;
+                        if (fieldData.is_array) {
+                            const arrayItemPath = Object.keys(fieldData.children).find(p => p.includes('[0]'));
+                            if (arrayItemPath) {
+                                const arrayItemData = fieldData.children[arrayItemPath];
+                                if (arrayItemData.children) {
+                                    childItems = Object.entries(arrayItemData.children)
+                                        .filter(([path]) => {
+                                            const relativePath = path.replace(arrayItemPath + '.', '');
+                                            return !relativePath.includes('.');
+                                        })
+                                        .map(([path, data]) => ({ path, data }));
+                                }
+                            }
+                        } else {
+                            childItems = Object.entries(fieldData.children)
+                                .filter(([path]) => {
+                                    const relativePath = path.replace(currentPath + '.', '');
+                                    return !relativePath.includes('.') && !relativePath.includes('[0]');
+                                })
+                                .map(([path, data]) => ({ path, data }));
+                        }
+
+                        if (childItems && childItems.length > 0) {
+                            newColumns.push({
+                                items: childItems,
+                                title: parts[i],
+                                parentPath: currentPath
+                            });
+                        }
+                    }
+                }
+
+                setColumns(newColumns);
+                setSelectedPath(targetPath);
+                setPathTrail(parts);
+
+                // Trigger onFieldSelect for the target field
+                const targetData = structure[targetPath];
+                setSelectedData(targetData || null);  // Store the data directly
+                if (targetData && onFieldSelect) {
+                    onFieldSelect(targetPath, targetData);
+                }
+
+                // Scroll to the element after a short delay to allow React to render
+                setTimeout(() => {
+                    const element = document.querySelector(`[data-path="${targetPath}"]`);
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Add a brief highlight animation
+                        element.classList.add('just-navigated');
+                        setTimeout(() => element.classList.remove('just-navigated'), 1500);
+                    }
+                }, 100);
+            };
+
+            // Expose navigateToPath method via ref
+            useImperativeHandle(ref, () => ({
+                navigateToPath
+            }));
+
+            const handleItemClick = (item, columnIndex) => {
+                setSelectedPath(item.path);
+                setSelectedData(item.data);  // Store the data directly
+                setDetailPanelOpen(true);  // Open detail panel on click
+                onFieldSelect && onFieldSelect(item.path, item.data);
+
+                // Build path trail
+                const trail = columns.slice(0, columnIndex + 1).map(col => col.title);
+                trail.push(item.path.split('.').pop());
+                setPathTrail(trail);
+
+                const hasChildren = item.data.children && Object.keys(item.data.children).length > 0;
+
+                if (hasChildren) {
+                    // Get direct children only (filter by path hierarchy)
+                    let childItems;
+
+                    if (item.data.is_array) {
+                        // For arrays, use array_count to generate all indices
+                        // The structure extractor only extracts [0] as a template, but we know the count
+                        const parentPath = item.path;
+                        const arrayCount = item.data.array_count || 0;
+
+                        // Get the template structure from [0]
+                        const templatePath = `${parentPath}[0]`;
+                        const templateItem = item.data.children[templatePath];
+                        const templateChildren = {};
+                        Object.entries(item.data.children || {}).forEach(([childPath, childData]) => {
+                            if (childPath.startsWith(templatePath + '.')) {
+                                // Store with relative path (without the [0] prefix)
+                                const relativePath = childPath.replace(templatePath + '.', '');
+                                templateChildren[relativePath] = childData;
+                            }
+                        });
+
+                        if (arrayCount > 0) {
+                            // Create items for each array index using the template structure
+                            childItems = Array.from({ length: arrayCount }, (_, index) => {
+                                const arrayItemPath = `${parentPath}[${index}]`;
+
+                                // Check if the template item is itself an array (array of arrays)
+                                if (templateItem && templateItem.is_array) {
+                                    return {
+                                        path: arrayItemPath,
+                                        displayName: `[${index}]`,
+                                        data: {
+                                            type: 'array',
+                                            is_array: true,
+                                            array_count: templateItem.array_count || 0,
+                                            item_type: templateItem.item_type,
+                                            children: templateItem.children || {},
+                                            sample_value: `[${templateItem.array_count || 0} items]`
+                                        }
+                                    };
+                                }
+
+                                // Otherwise it's an array of objects - create children for this index
+                                const itemChildren = {};
+                                Object.entries(templateChildren).forEach(([relativePath, childData]) => {
+                                    const fullPath = `${arrayItemPath}.${relativePath}`;
+                                    itemChildren[fullPath] = { ...childData, path: fullPath };
+                                });
+
+                                return {
+                                    path: arrayItemPath,
+                                    displayName: `[${index}]`,
+                                    data: {
+                                        type: 'object',
+                                        is_array: false,
+                                        children: itemChildren,
+                                        sample_value: `{${Object.keys(templateChildren).length} fields}`
+                                    }
+                                };
+                            });
+                        } else {
+                            // Empty array
+                            childItems = [];
+                        }
+                    } else {
+                        // For regular objects (including array items), show direct children only
+                        const parentPath = item.path;
+                        childItems = Object.entries(item.data.children)
+                            .filter(([path]) => {
+                                // Only show fields that are direct children of this object
+                                const relativePath = path.replace(parentPath + '.', '');
+                                return !relativePath.includes('.') && !relativePath.match(/\[\d+\]/);
+                            })
+                            .map(([path, data]) => ({ path, data }));
+                    }
+
+                    const newColumns = [
+                        ...columns.slice(0, columnIndex + 1),
+                        { items: childItems || [], title: item.path.split('.').pop(), parentPath: item.path }
+                    ];
+                    setColumns(newColumns);
+                } else {
+                    setColumns(columns.slice(0, columnIndex + 1));
+                }
+            };
+
+            const getIcon = (type) => {
+                switch (type) {
+                    case 'object': return '📦';
+                    case 'array': return '📚';
+                    case 'string': return '📝';
+                    case 'number': return '🔢';
+                    case 'boolean': return '✓';
+                    default: return '•';
+                }
+            };
+
+            const isInPath = (itemPath) => {
+                return selectedPath && selectedPath.startsWith(itemPath);
+            };
+
+            if (!structure || Object.keys(structure).length === 0) {
+                return (
+                    <div className="version-viewer">
+                        <div className={`version-header ${version}`}>
+                            {version === 'v1' ? 'V1 Merge Data (Sablon)' : 'V2 Merge Data (DocX Templater)'}
+                        </div>
+                        <div className="empty-state">
+                            <h3>No data available</h3>
+                            <p>Load a project to view merge data</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            // selectedData is now stored in state (set by handleItemClick/navigateToPath)
+            const syntaxExamples = selectedData ? generateSyntaxExamples(selectedPath, selectedData, version) : [];
+
+            // Helper to find mapping for a field path
+            const getMappingForField = (fieldPath) => {
+                if (version !== 'v1' || !mappings || mappings.length === 0) return null;
+                return mappings.find(m => m.v1_field === fieldPath) || null;
+            };
+
+            // Filter items based on search term and return match info
+            const matchesSearch = (item) => {
+                if (!searchTerm) return { matches: true, matchType: null };
+                const term = searchTerm.toLowerCase();
+                const fieldName = item.path.split('.').pop().toLowerCase();
+                const sampleValue = item.data.sample_value ? String(item.data.sample_value).toLowerCase() : '';
+                const fullPath = item.path.toLowerCase();
+
+                const nameMatches = fieldName.includes(term) || fullPath.includes(term);
+                const valueMatches = sampleValue.includes(term);
+
+                if (nameMatches && valueMatches) return { matches: true, matchType: 'both' };
+                if (nameMatches) return { matches: true, matchType: 'name' };
+                if (valueMatches) return { matches: true, matchType: 'value' };
+                return { matches: false, matchType: null };
+            };
+
+            // Search through entire structure and return all matching paths
+            const getAllSearchResults = () => {
+                if (!searchTerm || searchTerm.length < 2) return [];
+                const term = searchTerm.toLowerCase();
+                const results = [];
+
+                Object.entries(structure).forEach(([path, data]) => {
+                    const fieldName = path.split('.').pop().replace(/\[\d+\]/g, '').toLowerCase();
+                    const fullPath = path.toLowerCase();
+                    const sampleValue = data.sample_value ? String(data.sample_value).toLowerCase() : '';
+                    const dataType = data.type || '';
+
+                    const nameMatches = fieldName.includes(term) || fullPath.includes(term);
+                    const valueMatches = sampleValue.includes(term);
+                    const typeMatches = dataType.toLowerCase().includes(term);
+
+                    if (nameMatches || valueMatches || typeMatches) {
+                        let matchType = 'name';
+                        if (valueMatches && nameMatches) matchType = 'both';
+                        else if (valueMatches) matchType = 'value';
+                        else if (typeMatches) matchType = 'type';
+
+                        results.push({
+                            path,
+                            data,
+                            matchType,
+                            fieldName: path.split('.').pop().replace(/\[\d+\]/g, '')
+                        });
+                    }
+                });
+
+                // Sort results: name matches first, then value matches, then by path
+                return results.sort((a, b) => {
+                    const order = { both: 0, name: 1, type: 2, value: 3 };
+                    const diff = (order[a.matchType] || 4) - (order[b.matchType] || 4);
+                    if (diff !== 0) return diff;
+                    return a.path.localeCompare(b.path);
+                }).slice(0, 100); // Limit to 100 results
+            };
+
+            const searchResults = getAllSearchResults();
+
+            return (
+                <div className="version-viewer">
+                    <div className={`version-header ${version}`}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>{version === 'v1' ? 'V1 Merge Data (Sablon)' : 'V2 Merge Data (DocX Templater)'}</span>
+                                <span style={{ fontSize: '11px', opacity: 0.9 }}>
+                                    {Object.keys(structure).length} fields
+                                </span>
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search by name or value..."
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    // Call parent to update search term
+                                    const event = new CustomEvent('searchChange', { detail: { version, term: e.target.value } });
+                                    window.dispatchEvent(event);
+                                }}
+                                style={{
+                                    padding: '6px 10px',
+                                    border: '1px solid rgba(255,255,255,0.3)',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    background: 'rgba(255,255,255,0.2)',
+                                    color: 'white',
+                                    outline: 'none'
+                                }}
+                                onFocus={(e) => e.target.style.background = 'rgba(255,255,255,0.3)'}
+                                onBlur={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'}
+                            />
+                        </div>
+                    </div>
+
+                    {pathTrail.length > 0 && !searchTerm && (
+                        <div className="breadcrumb">
+                            {pathTrail.map((part, idx) => (
+                                <div key={idx} className={`breadcrumb-item ${idx === pathTrail.length - 1 ? 'active' : ''}`}>
+                                    {idx > 0 && <span>›</span>}
+                                    <span>{part}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Search Results Panel - shows when searching */}
+                    {searchTerm && searchTerm.length >= 2 && (
+                        <div className="search-results-panel" style={{
+                            flex: 1,
+                            overflow: 'auto',
+                            padding: '10px'
+                        }}>
+                            <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px', padding: '0 5px' }}>
+                                Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchTerm}"
+                                {searchResults.length === 100 && <span style={{ color: '#f0ad4e' }}> (showing first 100)</span>}
+                            </div>
+                            {searchResults.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
+                                    No matches found. Try a different search term.
+                                </div>
+                            ) : (
+                                searchResults.map((result, idx) => {
+                                    const mapping = getMappingForField(result.path);
+                                    return (
+                                        <div
+                                            key={idx}
+                                            onClick={() => {
+                                                // Clear search first, then navigate
+                                                const event = new CustomEvent('searchChange', { detail: { version, term: '' } });
+                                                window.dispatchEvent(event);
+                                                // Navigate to this field after a brief delay to let search clear
+                                                setTimeout(() => navigateToPath(result.path), 50);
+                                            }}
+                                            style={{
+                                                padding: '8px 10px',
+                                                marginBottom: '4px',
+                                                background: result.matchType === 'value' ? '#fff8e1' : result.matchType === 'both' ? '#e8f5e9' : 'white',
+                                                border: '1px solid #e0e0e0',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = result.matchType === 'value' ? '#fff8e1' : result.matchType === 'both' ? '#e8f5e9' : 'white'}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: '14px' }}>{getIcon(result.data.type)}</span>
+                                                <span style={{ fontWeight: '600', color: '#333', fontSize: '13px' }}>
+                                                    {result.fieldName}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    padding: '1px 5px',
+                                                    borderRadius: '3px',
+                                                    background: result.matchType === 'value' ? '#ff9800' : result.matchType === 'both' ? '#4caf50' : '#667eea',
+                                                    color: 'white'
+                                                }}>
+                                                    {result.matchType === 'both' ? 'name+value' : result.matchType}
+                                                </span>
+                                                {mapping && (
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        padding: '1px 5px',
+                                                        borderRadius: '3px',
+                                                        background: '#28a745',
+                                                        color: 'white'
+                                                    }}>mapped</span>
+                                                )}
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', fontFamily: 'monospace' }}>
+                                                {result.path}
+                                            </div>
+                                            {result.data.sample_value && (
+                                                <div style={{ fontSize: '11px', color: '#888', marginTop: '3px', fontStyle: 'italic' }}>
+                                                    Value: {String(result.data.sample_value).substring(0, 100)}{String(result.data.sample_value).length > 100 ? '...' : ''}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
+
+                    {/* Column Viewer - shows when not searching */}
+                    <div className="column-viewer" style={{ display: searchTerm && searchTerm.length >= 2 ? 'none' : 'flex' }}>
+                        {columns.map((column, columnIndex) => {
+                            const itemsWithMatch = column.items.map(item => ({
+                                ...item,
+                                searchMatch: matchesSearch(item)
+                            }));
+                            const filteredItems = itemsWithMatch.filter(item => item.searchMatch.matches);
+                            return (
+                            <div key={columnIndex} className="column">
+                                <div className="column-header">
+                                    <span>{column.title}</span>
+                                    <span className="column-count">{filteredItems.length}{searchTerm && column.items.length !== filteredItems.length ? `/${column.items.length}` : ''}</span>
+                                </div>
+                                <div className="column-content">
+                                    {filteredItems.map((item, itemIndex) => {
+                                        const isSelected = item.path === selectedPath;
+                                        const inPath = isInPath(item.path);
+                                        const isHighlighted = highlightedPaths.includes(item.path);
+                                        const hasChildren = item.data.children && Object.keys(item.data.children).length > 0;
+                                        const matchType = item.searchMatch.matchType;
+                                        const mapping = getMappingForField(item.path);
+                                        const isHighConfidence = mapping && (mapping.confidence >= 0.5 || mapping.source === 'manual');
+
+                                        return (
+                                            <div
+                                                key={itemIndex}
+                                                data-path={item.path}
+                                                className={`column-item ${isSelected ? 'selected' : ''} ${inPath && !isSelected ? 'in-path' : ''} ${isHighlighted ? 'highlighted' : ''} ${hasChildren ? 'has-children' : ''} ${matchType === 'value' ? 'value-match' : ''} ${mapping ? 'has-mapping' : ''}`}
+                                                onClick={() => handleItemClick(item, columnIndex)}
+                                            >
+                                                <span className="item-icon">{getIcon(item.data.type)}</span>
+                                                <span className="item-name">
+                                                    {item.displayName || item.path.split('.').pop().replace(/\[\d+\]/, '')}
+                                                </span>
+                                                {mapping && (
+                                                    <span
+                                                        className={`mapping-badge ${isHighConfidence ? 'high' : 'low'}`}
+                                                        title={`Mapped to: ${mapping.v2_field}\nConfidence: ${Math.round((mapping.confidence || 0) * 100)}%\nSource: ${mapping.source || 'learned'}`}
+                                                    >
+                                                        {isHighConfidence ? '✓' : '~'}
+                                                    </span>
+                                                )}
+                                                {matchType === 'value' && (
+                                                    <span className="value-match-badge" title={`Value: ${item.data.sample_value}`}>
+                                                        val
+                                                    </span>
+                                                )}
+                                                {matchType === 'both' && (
+                                                    <span className="value-match-badge both" title={`Value: ${item.data.sample_value}`}>
+                                                        +val
+                                                    </span>
+                                                )}
+                                                <span className={`item-type ${item.data.type}`}>
+                                                    {item.data.type}
+                                                    {item.data.is_array ? ` [${item.data.array_count}]` : ''}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                        })}
+
+                        {/* Floating Detail Panel */}
+                        {selectedPath && selectedData && (
+                            <div className={`detail-panel-floating ${detailPanelOpen ? 'open' : ''}`}>
+                                <div className="detail-panel-header">
+                                    <span>Details</span>
+                                    <button
+                                        className="detail-panel-close"
+                                        onClick={() => setDetailPanelOpen(false)}
+                                        title="Close panel"
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+                                <div className="detail-panel">
+                                    <div className="detail-title">{selectedPath.split('.').pop()}</div>
+
+                                    {/* Mapping Info Section */}
+                                    {(() => {
+                                        const selectedMapping = getMappingForField(selectedPath);
+                                        return selectedMapping ? (
+                                            <div className="mapping-info">
+                                                <div className="mapping-info-header">
+                                                    <span>{selectedMapping.source === 'manual' ? '✓' : '~'}</span>
+                                                    <span>Existing Mapping</span>
+                                                </div>
+                                                <div className="mapping-info-detail">
+                                                    Maps to: <code>{selectedMapping.v2_field}</code>
+                                                </div>
+                                                <div className="mapping-info-detail">
+                                                    Confidence: {Math.round((selectedMapping.confidence || 0) * 100)}%
+                                                </div>
+                                                <div className="mapping-info-detail">
+                                                    Source: {selectedMapping.source || 'learned'}
+                                                </div>
+                                                {onUnmap && (
+                                                    <button
+                                                        onClick={() => onUnmap(selectedPath, selectedMapping)}
+                                                        className="unmap-btn"
+                                                        style={{
+                                                            marginTop: '10px',
+                                                            width: '100%',
+                                                            padding: '8px',
+                                                            background: '#f44336',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '600',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Remove Mapping
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ) : null;
+                                    })()}
+
+                                    <div className="detail-section">
+                                        <div className="detail-label">Full Path</div>
+                                        <div className="detail-value">{selectedPath}</div>
+                                    </div>
+
+                                    <div className="detail-section">
+                                        <div className="detail-label">Type</div>
+                                        <div className="detail-value">{selectedData.type}</div>
+                                    </div>
+
+                                    {selectedData.sample_value && (
+                                        <div className="detail-section">
+                                            <div className="detail-label">Sample Value</div>
+                                            <div className="detail-value">
+                                                {typeof selectedData.sample_value === 'object'
+                                                    ? JSON.stringify(selectedData.sample_value, null, 2)
+                                                    : selectedData.sample_value}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {selectedData.is_array && (
+                                        <div className="detail-section">
+                                            <div className="detail-label">Array Count</div>
+                                            <div className="detail-value">{selectedData.array_count} items</div>
+                                        </div>
+                                    )}
+
+                                    <div className="detail-section">
+                                        <div className="detail-label">How to Access</div>
+                                        {syntaxExamples.map((example, idx) => (
+                                            <div key={idx}>
+                                                <div style={{ fontSize: '10px', color: '#666', marginTop: '8px', marginBottom: '2px' }}>
+                                                    {example.label}:
+                                                </div>
+                                                <div className="syntax-example">{example.syntax}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        });
+
+        // Main app component
+        function MergeDataViewer() {
+            // Load initial state from localStorage and URL
+            const getInitialProjectId = () => {
+                // Only load from URL param, not localStorage (user requested no auto-load)
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get('project') || '';
+            };
+
+            const [projectId, setProjectId] = useState(getInitialProjectId());
+            const [loading, setLoading] = useState(false);
+            const [loadingView, setLoadingView] = useState(null); // Which view is currently loading
+            const [error, setError] = useState(null);
+            const [data, setData] = useState(null);
+            const [v1Loaded, setV1Loaded] = useState(false); // Track if V1 data has been loaded
+            const [v2Loaded, setV2Loaded] = useState(false); // Track if V2 data has been loaded
+            const [v1Selected, setV1Selected] = useState(null);
+            const [v2Selected, setV2Selected] = useState(null);
+            const [v1Highlights, setV1Highlights] = useState([]);
+            const [v2Highlights, setV2Highlights] = useState([]);
+            const [v1HighlightScores, setV1HighlightScores] = useState({});
+            const [v2HighlightScores, setV2HighlightScores] = useState({});
+            const [successMessage, setSuccessMessage] = useState('');
+            const [showMatches, setShowMatches] = useState(false);
+            const [v1SearchTerm, setV1SearchTerm] = useState('');
+            const [v2SearchTerm, setV2SearchTerm] = useState('');
+            const [v1ArrayContext, setV1ArrayContext] = useState(null); // {arrayPath, matchingV2Arrays}
+            const [v2ArrayContext, setV2ArrayContext] = useState(null);
+            const [viewMode, setViewMode] = useState('v2'); // 'both', 'v1', 'v2' - default to v2 (faster)
+            const v1ViewerRef = useRef(null);
+            const v2ViewerRef = useRef(null);
+
+            // Utility: Extract array path from a field path
+            const extractArrayPath = (fieldPath) => {
+                const match = fieldPath.match(/^(.+?)\[\d+\]/);
+                return match ? match[1] + '[]' : null;
+            };
+
+            // Utility: Get the field name within an array item
+            const getArrayItemField = (fieldPath) => {
+                const match = fieldPath.match(/\[\d+\]\.(.+)$/);
+                return match ? match[1] : null;
+            };
+
+            // Find matching V2 arrays based on structure similarity
+            const findMatchingV2Arrays = (v1ArrayPath, v1Structure, v2Structure) => {
+                if (!v1ArrayPath || !v1Structure || !v2Structure) return [];
+
+                // Get fields within the V1 array
+                const v1ArrayBase = v1ArrayPath.replace('[]', '');
+                const v1Fields = new Set();
+                Object.keys(v1Structure).forEach(path => {
+                    if (path.startsWith(v1ArrayBase + '[')) {
+                        const field = getArrayItemField(path);
+                        if (field) v1Fields.add(field.split('.')[0]); // Get top-level field name
+                    }
+                });
+
+                // Find V2 arrays and score them by field similarity
+                const v2Arrays = new Map(); // arrayPath -> Set of fields
+                Object.keys(v2Structure).forEach(path => {
+                    const arrayPath = extractArrayPath(path);
+                    if (arrayPath) {
+                        if (!v2Arrays.has(arrayPath)) {
+                            v2Arrays.set(arrayPath, new Set());
+                        }
+                        const field = getArrayItemField(path);
+                        if (field) v2Arrays.get(arrayPath).add(field.split('.')[0]);
+                    }
+                });
+
+                // Score each V2 array
+                const matches = [];
+                v2Arrays.forEach((v2Fields, v2ArrayPath) => {
+                    // Calculate field overlap score
+                    const commonFields = [...v1Fields].filter(f => v2Fields.has(f));
+                    const totalFields = new Set([...v1Fields, ...v2Fields]).size;
+                    const score = totalFields > 0 ? Math.round((commonFields.length / totalFields) * 100) : 0;
+
+                    if (score > 0 || v2ArrayPath.replace('[]', '').endsWith(v1ArrayBase.split('.').pop())) {
+                        matches.push({
+                            path: v2ArrayPath,
+                            score: score,
+                            commonFields: commonFields,
+                            v2Fields: [...v2Fields]
+                        });
+                    }
+                });
+
+                // Sort by score descending
+                return matches.sort((a, b) => b.score - a.score);
+            };
+
+            // Handle array mapping
+            const handleArrayMapping = async (v1Array, v2Array) => {
+                try {
+                    const response = await fetch('/api/save-array-mapping', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            v1_array: v1Array,
+                            v2_array: v2Array,
+                            project_id: projectId
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        setSuccessMessage(`Array mapping saved: ${v1Array} → ${v2Array}`);
+                        setTimeout(() => setSuccessMessage(''), 3000);
+                    } else {
+                        setError(result.error || 'Failed to save array mapping');
+                    }
+                } catch (err) {
+                    setError('Error saving array mapping: ' + err.message);
+                }
+            };
+
+            const loadMergeData = async (overrideProjectId = null, viewToLoad = null) => {
+                const idToLoad = overrideProjectId || projectId;
+                const view = viewToLoad || viewMode;
+                console.log('loadMergeData called, projectId:', idToLoad, 'view:', view);
+                if (!idToLoad || !idToLoad.toString().trim()) {
+                    setError('Please enter a project ID');
+                    return;
+                }
+
+                // Check if we already have the data for this view
+                if (data && data.project_id === idToLoad.toString()) {
+                    if (view === 'v1' && v1Loaded) {
+                        console.log('V1 data already loaded');
+                        return;
+                    }
+                    if (view === 'v2' && v2Loaded) {
+                        console.log('V2 data already loaded');
+                        return;
+                    }
+                    if (view === 'both' && v1Loaded && v2Loaded) {
+                        console.log('Both views already loaded');
+                        return;
+                    }
+                }
+
+                // Determine what we actually need to load
+                let actualView = view;
+                if (view === 'both' && data && data.project_id === idToLoad.toString()) {
+                    // If loading 'both' but one is already loaded, just load the missing one
+                    if (v1Loaded && !v2Loaded) actualView = 'v2';
+                    else if (v2Loaded && !v1Loaded) actualView = 'v1';
+                }
+
+                setLoading(true);
+                setLoadingView(actualView);
+                setError(null);
+
+                try {
+                    const url = `/api/merge-data-structure/${idToLoad}?view=${actualView}`;
+                    console.log('Fetching:', url);
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    console.log('Response:', response.ok, 'Data:', result);
+
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Failed to load merge data');
+                    }
+
+                    // Merge with existing data if we have some
+                    if (data && data.project_id === idToLoad.toString()) {
+                        const mergedData = { ...data, ...result };
+                        // Preserve existing structures that weren't in the new response
+                        if (!result.v1_structure && data.v1_structure) {
+                            mergedData.v1_structure = data.v1_structure;
+                            mergedData.v1_field_count = data.v1_field_count;
+                        }
+                        if (!result.v2_structure && data.v2_structure) {
+                            mergedData.v2_structure = data.v2_structure;
+                            mergedData.v2_field_count = data.v2_field_count;
+                        }
+                        setData(mergedData);
+                    } else {
+                        // New project, reset loaded flags
+                        setV1Loaded(false);
+                        setV2Loaded(false);
+                        setData(result);
+                    }
+
+                    // Update loaded flags
+                    if (result.v1_structure) setV1Loaded(true);
+                    if (result.v2_structure) setV2Loaded(true);
+
+                    console.log('Data set successfully');
+                } catch (err) {
+                    console.error('Error loading merge data:', err);
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                    setLoadingView(null);
+                }
+            };
+
+            // Auto-load data when viewMode changes (if project is selected and needed data isn't loaded)
+            useEffect(() => {
+                if (!projectId || !data) return;
+
+                const needsV1 = (viewMode === 'v1' || viewMode === 'both') && !v1Loaded;
+                const needsV2 = (viewMode === 'v2' || viewMode === 'both') && !v2Loaded;
+
+                if (needsV1 || needsV2) {
+                    const viewToLoad = needsV1 && needsV2 ? 'both' : (needsV1 ? 'v1' : 'v2');
+                    loadMergeData(null, viewToLoad);
+                }
+            }, [viewMode]);
+
+            const handleV1Select = (path, fieldData) => {
+                setV1Selected({ path, data: fieldData });
+                setV1Highlights([]); // Clear V1 highlights when selecting V1
+
+                // Find matching fields in V2 using multiple criteria
+                if (data && data.v2_structure) {
+                    const matches = [];
+                    Object.entries(data.v2_structure).forEach(([v2Path, v2Data]) => {
+                        let score = 0;
+
+                        // 1. Exact value match (highest priority)
+                        if (fieldData.sample_value && v2Data.sample_value === fieldData.sample_value) {
+                            score += 100;
+                        }
+
+                        // 2. Exact path match
+                        if (v2Path === path) {
+                            score += 90;
+                        }
+
+                        // 3. Same field name (last part of path)
+                        const v1FieldName = path.split('.').pop();
+                        const v2FieldName = v2Path.split('.').pop();
+                        if (v1FieldName === v2FieldName) {
+                            score += 50;
+                        }
+
+                        // 4. Similar path (same parent)
+                        const v1Parent = path.split('.').slice(0, -1).join('.');
+                        const v2Parent = v2Path.split('.').slice(0, -1).join('.');
+                        if (v1Parent && v2Parent && v1Parent === v2Parent) {
+                            score += 30;
+                        }
+
+                        // 5. Same type
+                        if (fieldData.type === v2Data.type) {
+                            score += 10;
+                        }
+
+                        // If score is above threshold, it's a match (80%+ for quality filtering)
+                        if (score >= 80) {
+                            matches.push({ path: v2Path, score });
+                        }
+                    });
+
+                    // Sort by score and extract paths + scores
+                    const sortedMatches = matches.sort((a, b) => b.score - a.score);
+                    const matchPaths = sortedMatches.map(m => m.path);
+                    const matchScores = {};
+                    sortedMatches.forEach(m => {
+                        matchScores[m.path] = m.score;
+                    });
+                    setV2Highlights(matchPaths);
+                    setV2HighlightScores(matchScores);
+                } else {
+                    setV2Highlights([]);
+                    setV2HighlightScores({});
+                }
+
+                // Detect if field is inside an array and find matching V2 arrays
+                const arrayPath = extractArrayPath(path);
+                if (arrayPath && data && data.v1_structure && data.v2_structure) {
+                    const matchingArrays = findMatchingV2Arrays(arrayPath, data.v1_structure, data.v2_structure);
+                    setV1ArrayContext({ arrayPath, matchingV2Arrays: matchingArrays });
+                } else {
+                    setV1ArrayContext(null);
+                }
+            };
+
+            const handleV2Select = (path, fieldData) => {
+                setV2Selected({ path, data: fieldData });
+                setV2Highlights([]); // Clear V2 highlights when selecting V2
+
+                // Find matching fields in V1 using multiple criteria
+                if (data && data.v1_structure) {
+                    const matches = [];
+                    Object.entries(data.v1_structure).forEach(([v1Path, v1Data]) => {
+                        let score = 0;
+
+                        // 1. Exact value match (highest priority)
+                        if (fieldData.sample_value && v1Data.sample_value === fieldData.sample_value) {
+                            score += 100;
+                        }
+
+                        // 2. Exact path match
+                        if (v1Path === path) {
+                            score += 90;
+                        }
+
+                        // 3. Same field name (last part of path)
+                        const v2FieldName = path.split('.').pop();
+                        const v1FieldName = v1Path.split('.').pop();
+                        if (v2FieldName === v1FieldName) {
+                            score += 50;
+                        }
+
+                        // 4. Similar path (same parent)
+                        const v2Parent = path.split('.').slice(0, -1).join('.');
+                        const v1Parent = v1Path.split('.').slice(0, -1).join('.');
+                        if (v2Parent && v1Parent && v2Parent === v1Parent) {
+                            score += 30;
+                        }
+
+                        // 5. Same type
+                        if (fieldData.type === v1Data.type) {
+                            score += 10;
+                        }
+
+                        // If score is above threshold, it's a match
+                        if (score >= 50) {
+                            matches.push({ path: v1Path, score });
+                        }
+                    });
+
+                    // Sort by score and extract paths + scores
+                    const sortedMatches = matches.sort((a, b) => b.score - a.score);
+                    const matchPaths = sortedMatches.map(m => m.path);
+                    const matchScores = {};
+                    sortedMatches.forEach(m => {
+                        matchScores[m.path] = m.score;
+                    });
+                    setV1Highlights(matchPaths);
+                    setV1HighlightScores(matchScores);
+                } else {
+                    setV1Highlights([]);
+                    setV1HighlightScores({});
+                }
+            };
+
+            const jumpToHighlight = (highlightPath, version) => {
+                if (version === 'v2' && v2ViewerRef.current) {
+                    v2ViewerRef.current.navigateToPath(highlightPath);
+                } else if (version === 'v1' && v1ViewerRef.current) {
+                    v1ViewerRef.current.navigateToPath(highlightPath);
+                }
+            };
+
+            const handleUnmap = async (v1Field, mapping) => {
+                if (!window.confirm(`Remove mapping: ${v1Field} → ${mapping.v2_field}?`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/mapping/${encodeURIComponent(v1Field)}`, {
+                        method: 'DELETE'
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        setSuccessMessage(`Mapping removed: ${v1Field}`);
+                        setTimeout(() => setSuccessMessage(''), 3000);
+
+                        // Update data to remove the mapping from local state
+                        setData(prevData => ({
+                            ...prevData,
+                            suggested_mappings: (prevData.suggested_mappings || []).filter(m => m.v1_field !== v1Field),
+                            manual_mappings: (prevData.manual_mappings || []).filter(m => m.v1_field !== v1Field)
+                        }));
+                    } else {
+                        setError(result.error || 'Failed to remove mapping');
+                        setTimeout(() => setError(''), 5000);
+                    }
+                } catch (err) {
+                    setError('Error removing mapping: ' + err.message);
+                    setTimeout(() => setError(''), 5000);
+                }
+            };
+
+            const handleLearnMapping = async () => {
+                if (!v1Selected || !v2Selected) {
+                    setError('Please select both a V1 and V2 field to create a mapping');
+                    return;
+                }
+
+                try {
+                    // Save mapping to database via API
+                    const response = await fetch('/api/save-manual-mapping', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            v1_field: v1Selected.path,
+                            v2_field: v2Selected.path,
+                            project_id: projectId,
+                            sample_value: v1Selected.data.sample_value
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        setSuccessMessage(`✓ Mapping saved to repository: ${v1Selected.path} → ${v2Selected.path}`);
+
+                        // Update manual mappings count without reloading everything
+                        setData(prevData => ({
+                            ...prevData,
+                            manual_mappings: [...(prevData.manual_mappings || []), {
+                                v1_field: v1Selected.path,
+                                v2_field: v2Selected.path
+                            }]
+                        }));
+
+                        // Clear selections after successful save
+                        setTimeout(() => {
+                            setSuccessMessage('');
+                            setV1Selected(null);
+                            setV2Selected(null);
+                            setV1Highlights([]);
+                            setV2Highlights([]);
+                            setV1HighlightScores({});
+                            setV2HighlightScores({});
+                        }, 2000);
+                    } else {
+                        setError(`Failed to save mapping: ${result.error}`);
+                        setTimeout(() => setError(''), 5000);
+                    }
+                } catch (err) {
+                    console.error('Error saving mapping:', err);
+                    setError(`Error saving mapping: ${err.message}`);
+                    setTimeout(() => setError(''), 5000);
+                }
+            };
+
+            // Update URL when project changes (no auto-load, no localStorage)
+            useEffect(() => {
+                if (projectId) {
+                    const url = new URL(window.location);
+                    url.searchParams.set('project', projectId);
+                    window.history.pushState({}, '', url);
+                }
+            }, [projectId]);
+
+            // Listen for search changes from VersionViewer
+            useEffect(() => {
+                const handleSearchChange = (e) => {
+                    if (e.detail.version === 'v1') {
+                        setV1SearchTerm(e.detail.term);
+                    } else {
+                        setV2SearchTerm(e.detail.term);
+                    }
+                };
+                window.addEventListener('searchChange', handleSearchChange);
+                return () => window.removeEventListener('searchChange', handleSearchChange);
+            }, []);
+
+            return (
+                <div>
+                    <div className="project-selector">
+                        <label htmlFor="projectId">Project:</label>
+                        <ProjectPicker
+                            value={projectId}
+                            onChange={setProjectId}
+                            onSelect={(project) => {
+                                setProjectId(project.id);
+                                // Reset loaded flags for new project
+                                setV1Loaded(false);
+                                setV2Loaded(false);
+                                setData(null);
+                                // Auto-load when selecting from dropdown - pass ID directly to avoid race condition
+                                loadMergeData(project.id);
+                            }}
+                        />
+                        <button onClick={() => loadMergeData()} disabled={loading}>
+                            {loading ? `Loading ${loadingView || viewMode}...` : 'Load Merge Data'}
+                        </button>
+
+                        <div className="view-toggle" style={{ display: 'flex', gap: '2px', marginLeft: '20px', background: '#f0f0f0', borderRadius: '6px', padding: '2px' }}>
+                            <button
+                                onClick={() => setViewMode('both')}
+                                disabled={loading}
+                                style={{
+                                    padding: '6px 12px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: viewMode === 'both' ? '600' : '400',
+                                    background: viewMode === 'both' ? '#667eea' : 'transparent',
+                                    color: viewMode === 'both' ? 'white' : '#666',
+                                    opacity: loading ? 0.7 : 1
+                                }}
+                            >
+                                Both {v1Loaded && v2Loaded && '✓'}
+                            </button>
+                            <button
+                                onClick={() => setViewMode('v1')}
+                                disabled={loading}
+                                style={{
+                                    padding: '6px 12px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: viewMode === 'v1' ? '600' : '400',
+                                    background: viewMode === 'v1' ? '#667eea' : 'transparent',
+                                    color: viewMode === 'v1' ? 'white' : '#666',
+                                    opacity: loading ? 0.7 : 1
+                                }}
+                            >
+                                V1 Only {v1Loaded && '✓'} {loadingView === 'v1' && '⏳'}
+                            </button>
+                            <button
+                                onClick={() => setViewMode('v2')}
+                                disabled={loading}
+                                style={{
+                                    padding: '6px 12px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: viewMode === 'v2' ? '600' : '400',
+                                    background: viewMode === 'v2' ? '#f5576c' : 'transparent',
+                                    color: viewMode === 'v2' ? 'white' : '#666',
+                                    opacity: loading ? 0.7 : 1
+                                }}
+                            >
+                                V2 Only {v2Loaded && '✓'} {loadingView === 'v2' && '⏳'}
+                            </button>
+                        </div>
+
+                        {(v1Selected || v2Selected) && (
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                                {v1Selected && (
+                                    <button
+                                        onClick={() => { setV1Selected(null); setV2Highlights([]); setV2HighlightScores({}); setV1ArrayContext(null); }}
+                                        style={{ background: '#9c27b0', color: 'white' }}
+                                    >
+                                        Clear V1: {v1Selected.path.split('.').pop()}
+                                    </button>
+                                )}
+                                {v2Selected && (
+                                    <button
+                                        onClick={() => { setV2Selected(null); setV1Highlights([]); setV1HighlightScores({}); }}
+                                        style={{ background: '#e91e63', color: 'white' }}
+                                    >
+                                        Clear V2: {v2Selected.path.split('.').pop()}
+                                    </button>
+                                )}
+                                {v1Selected && v2Selected && (
+                                    <button
+                                        onClick={handleLearnMapping}
+                                        style={{ background: '#4caf50', color: 'white' }}
+                                    >
+                                        Learn Mapping: {v1Selected.path.split('.').pop()} → {v2Selected.path.split('.').pop()}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {error && (
+                        <div className="error">
+                            <strong>Error:</strong> {error}
+                        </div>
+                    )}
+
+                    {successMessage && (
+                        <div className="success-message">
+                            ✓ {successMessage}
+                        </div>
+                    )}
+
+                    {loading && (
+                        <div className="loading">
+                            <h3>Loading merge data...</h3>
+                            <p>Fetching structures from ScopeStack API</p>
+                            <p style={{ fontSize: '11px', color: '#999', marginTop: '10px' }}>This may take 30-60 seconds for large projects</p>
+                            <div style={{ marginTop: '15px' }}>
+                                <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden' }}>
+                                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #667eea, #764ba2)', animation: 'loading-bar 1.5s ease-in-out infinite' }}></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {data && !loading && (
+                        <>
+                            {/* Collapsible matching results - only show in Both view */}
+                            {viewMode === 'both' && (v1Highlights.length > 0 || v2Highlights.length > 0) && (
+                                <div style={{
+                                    background: '#f5f5f5',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    margin: '10px 0',
+                                    overflow: 'hidden'
+                                }}>
+                                    <button
+                                        onClick={() => setShowMatches(!showMatches)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            background: showMatches ? '#e3f2fd' : '#fff3e0',
+                                            border: showMatches ? '2px solid #2196f3' : '2px solid #ff9800',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            borderRadius: '4px'
+                                        }}
+                                    >
+                                        <span style={{ color: showMatches ? '#1565c0' : '#e65100' }}>
+                                            🔍 Matching Fields Found: {v1Highlights.length > 0 ? `${v1Highlights.length} in V1` : ''}{v1Highlights.length > 0 && v2Highlights.length > 0 ? ', ' : ''}{v2Highlights.length > 0 ? `${v2Highlights.length} in V2` : ''}
+                                        </span>
+                                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: showMatches ? '#1565c0' : '#e65100' }}>
+                                            {showMatches ? '▼ Hide' : '▶ Show Details'}
+                                        </span>
+                                    </button>
+
+                                    {showMatches && (
+                                        <div style={{ padding: '10px', background: 'white' }}>
+                                            {v2Highlights.length > 0 && (
+                                                <div style={{ marginBottom: v1Highlights.length > 0 ? '15px' : '0' }}>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#1976d2' }}>
+                                                        Matches in V2 ({v2Highlights.length}):
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                        {v2Highlights.map((path, idx) => {
+                                                            const score = v2HighlightScores[path] || 0;
+                                                            const percentage = Math.min(100, Math.round(score)); // Cap at 100%
+                                                            const color = percentage >= 80 ? '#4caf50' : percentage >= 50 ? '#ff9800' : '#f44336';
+                                                            return (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => jumpToHighlight(path, 'v2')}
+                                                                    style={{
+                                                                        padding: '8px 12px',
+                                                                        background: 'white',
+                                                                        border: '1px solid #e0e0e0',
+                                                                        borderRadius: '4px',
+                                                                        cursor: 'pointer',
+                                                                        textAlign: 'left',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                        fontSize: '12px'
+                                                                    }}
+                                                                >
+                                                                    <span style={{ flex: 1, fontFamily: 'monospace' }}>
+                                                                        {path}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        marginLeft: '10px',
+                                                                        padding: '2px 8px',
+                                                                        background: color,
+                                                                        color: 'white',
+                                                                        borderRadius: '3px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 'bold'
+                                                                    }}>
+                                                                        {percentage}%
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {v1Highlights.length > 0 && (
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#1976d2' }}>
+                                                        Matches in V1 ({v1Highlights.length}):
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                        {v1Highlights.map((path, idx) => {
+                                                            const score = v1HighlightScores[path] || 0;
+                                                            const percentage = Math.min(100, Math.round(score)); // Cap at 100%
+                                                            const color = percentage >= 80 ? '#4caf50' : percentage >= 50 ? '#ff9800' : '#f44336';
+                                                            return (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => jumpToHighlight(path, 'v1')}
+                                                                    style={{
+                                                                        padding: '8px 12px',
+                                                                        background: 'white',
+                                                                        border: '1px solid #e0e0e0',
+                                                                        borderRadius: '4px',
+                                                                        cursor: 'pointer',
+                                                                        textAlign: 'left',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                        fontSize: '12px'
+                                                                    }}
+                                                                >
+                                                                    <span style={{ flex: 1, fontFamily: 'monospace' }}>
+                                                                        {path}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        marginLeft: '10px',
+                                                                        padding: '2px 8px',
+                                                                        background: color,
+                                                                        color: 'white',
+                                                                        borderRadius: '3px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 'bold'
+                                                                    }}>
+                                                                        {percentage}%
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Array Mapping UI */}
+                            {v1ArrayContext && v1ArrayContext.matchingV2Arrays.length > 0 && (
+                                <div style={{
+                                    background: '#e8f5e9',
+                                    border: '2px solid #4caf50',
+                                    borderRadius: '8px',
+                                    padding: '16px',
+                                    margin: '10px 0'
+                                }}>
+                                    <div style={{ fontWeight: 'bold', marginBottom: '12px', color: '#2e7d32', fontSize: '14px' }}>
+                                        Map Entire Array Structure
+                                    </div>
+                                    <div style={{ marginBottom: '12px', fontSize: '13px', color: '#555' }}>
+                                        Selected field is inside array: <code style={{ background: '#c8e6c9', padding: '2px 6px', borderRadius: '3px' }}>{v1ArrayContext.arrayPath}</code>
+                                    </div>
+                                    <div style={{ marginBottom: '8px', fontSize: '12px', color: '#666' }}>
+                                        Matching V2 arrays (by field structure):
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {v1ArrayContext.matchingV2Arrays.slice(0, 5).map((match, idx) => (
+                                            <div key={idx} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                background: 'white',
+                                                padding: '10px 12px',
+                                                borderRadius: '6px',
+                                                border: '1px solid #c8e6c9'
+                                            }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: '600' }}>
+                                                        {match.path}
+                                                    </div>
+                                                    <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                                                        {match.score}% field match
+                                                        {match.commonFields.length > 0 && (
+                                                            <span> ({match.commonFields.slice(0, 3).join(', ')}{match.commonFields.length > 3 ? '...' : ''})</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleArrayMapping(v1ArrayContext.arrayPath, match.path)}
+                                                    style={{
+                                                        padding: '8px 16px',
+                                                        background: '#4caf50',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '12px',
+                                                        fontWeight: '600'
+                                                    }}
+                                                >
+                                                    Map Arrays
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className={`viewers-container ${viewMode !== 'both' ? 'single-view' : ''}`}>
+                                {(viewMode === 'both' || viewMode === 'v1') && (
+                                    <VersionViewer
+                                        ref={v1ViewerRef}
+                                        version="v1"
+                                        structure={data.v1_structure}
+                                        onFieldSelect={handleV1Select}
+                                        highlightedPaths={v1Highlights}
+                                        searchTerm={v1SearchTerm}
+                                        mappings={[...(data.suggested_mappings || []), ...(data.manual_mappings || [])]}
+                                        onUnmap={handleUnmap}
+                                    />
+                                )}
+                                {(viewMode === 'both' || viewMode === 'v2') && (
+                                    <VersionViewer
+                                        ref={v2ViewerRef}
+                                        version="v2"
+                                        structure={data.v2_structure}
+                                        onFieldSelect={handleV2Select}
+                                        highlightedPaths={v2Highlights}
+                                        searchTerm={v2SearchTerm}
+                                    />
+                                )}
+                            </div>
+
+                            <div className="stats-bar">
+                                <div className="stat-item">
+                                    <span className="stat-label">Project:</span>
+                                    <span className="stat-value">{data.project_id}</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-label">V1 Fields:</span>
+                                    <span className="stat-value">{data.v1_field_count}</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-label">V2 Fields:</span>
+                                    <span className="stat-value">{data.v2_field_count}</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-label">Learned Mappings:</span>
+                                    <span className="stat-value">{(data.suggested_mappings || []).length}</span>
+                                </div>
+                                <div className="stat-item">
+                                    <span className="stat-label">Manual Mappings:</span>
+                                    <span className="stat-value">{(data.manual_mappings || []).length}</span>
+                                </div>
+                                <div className="stat-item">
+                                    <button
+                                        onClick={() => showMappingsModal()}
+                                        style={{
+                                            padding: '6px 12px',
+                                            fontSize: '11px',
+                                            background: '#667eea',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        View All Mappings
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MergeDataViewer />);
+    </script>
+    {% endraw %}
+
+    <!-- Auth and Settings JavaScript (outside React/Babel) -->
+    <script>
+        // Global state
+        let isAuthenticated = false;
+        let aiSettings = {
+            enabled: false,
+            provider: 'openai',
+            maxIterations: 4,
+            apiKey: null
+        };
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuthStatus();
+            await loadAISettings();
+
+            // Check for OAuth callback success
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auth') === 'success') {
+                // Clean up URL (remove query parameter)
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // Show success message after auth check completes
+                setTimeout(() => {
+                    alert('Successfully logged in via SSO!');
+                }, 500);
+            }
+        });
+
+        // Check authentication status
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+
+                if (data.authenticated) {
+                    updateAuthUI(true, data.account);
+                } else {
+                    updateAuthUI(false);
+                }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+                updateAuthUI(false);
+            }
+        }
+
+        // Update auth UI elements
+        function updateAuthUI(authenticated, account = null) {
+            isAuthenticated = authenticated;
+            const indicator = document.getElementById('authIndicator');
+            const text = document.getElementById('authText');
+            const button = document.getElementById('authButton');
+
+            // Check if we have valid auth - account can be truthy even if empty object
+            const hasValidAuth = authenticated && account && (account.email || account.account_slug || account.account_id);
+
+            if (hasValidAuth) {
+                indicator.classList.add('authenticated');
+                const displayName = account.email || account.account_slug || 'Authenticated';
+                text.innerHTML = `<span class="auth-email">${displayName}</span>`;
+                button.textContent = 'Logout';
+                button.onclick = performLogout;
+            } else if (authenticated) {
+                // Authenticated but no account info yet - show as authenticated
+                indicator.classList.add('authenticated');
+                text.innerHTML = `<span class="auth-email">Authenticated</span>`;
+                button.textContent = 'Logout';
+                button.onclick = performLogout;
+            } else {
+                indicator.classList.remove('authenticated');
+                text.textContent = 'Not authenticated';
+                button.textContent = 'Login';
+                button.onclick = showLogin;
+            }
+        }
+
+        // Load AI settings
+        async function loadAISettings() {
+            try {
+                const response = await fetch('/api/settings/ai');
+                const data = await response.json();
+
+                aiSettings.enabled = data.enabled;
+                aiSettings.provider = data.provider;
+                aiSettings.maxIterations = data.max_iterations;
+                aiSettings.apiKey = data.has_api_key ? '***saved***' : null;
+            } catch (error) {
+                console.error('Error loading AI settings:', error);
+            }
+        }
+
+        // Show login modal
+        function showLogin() {
+            document.getElementById('loginModal').classList.add('show');
+            document.getElementById('loginEmail').focus();
+        }
+
+        // Close login modal
+        function closeLogin() {
+            document.getElementById('loginModal').classList.remove('show');
+            document.getElementById('loginEmail').value = '';
+            document.getElementById('loginPassword').value = '';
+            const alert = document.getElementById('loginAlert');
+            alert.style.display = 'none';
+        }
+
+        // Perform login
+        async function performLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const alert = document.getElementById('loginAlert');
+
+            if (!email || !password) {
+                alert.className = 'alert alert-error';
+                alert.textContent = 'Please enter both email and password';
+                alert.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    updateAuthUI(true, data.account);
+                    closeLogin();
+                } else {
+                    alert.className = 'alert alert-error';
+                    alert.textContent = data.error || 'Login failed';
+                    alert.style.display = 'block';
+                }
+            } catch (error) {
+                alert.className = 'alert alert-error';
+                alert.textContent = 'Error: ' + error.message;
+                alert.style.display = 'block';
+            }
+        }
+
+        // Perform logout
+        async function performLogout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                updateAuthUI(false);
+            } catch (error) {
+                console.error('Error logging out:', error);
+            }
+        }
+
+        // ==================== Mappings Modal Functions ====================
+
+        let allMappings = [];
+        let sortColumn = 'v1_field';
+        let sortDirection = 'asc';
+
+        async function showMappingsModal() {
+            document.getElementById('mappingsModal').classList.add('show');
+            await loadAllMappings();
+
+            // Set up search filter
+            document.getElementById('mappingSearchInput').addEventListener('input', filterMappings);
+        }
+
+        function closeMappingsModal() {
+            document.getElementById('mappingsModal').classList.remove('show');
+        }
+
+        async function loadAllMappings() {
+            try {
+                const response = await fetch('/api/mappings');
+                const data = await response.json();
+
+                if (data.success) {
+                    allMappings = data.mappings || [];
+                    renderMappingsTable(allMappings);
+                    document.getElementById('mappingCount').textContent = `${allMappings.length} mappings`;
+                } else {
+                    document.getElementById('mappingsTableBody').innerHTML =
+                        '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #f44336;">Error loading mappings</td></tr>';
+                }
+            } catch (err) {
+                console.error('Error loading mappings:', err);
+                document.getElementById('mappingsTableBody').innerHTML =
+                    '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #f44336;">Error: ' + err.message + '</td></tr>';
+            }
+        }
+
+        function renderMappingsTable(mappings) {
+            const tbody = document.getElementById('mappingsTableBody');
+
+            if (mappings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #666;">No mappings found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = mappings.map(m => `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px 10px; font-family: monospace; font-size: 11px;">${escapeHtml(m.v1_field)}</td>
+                    <td style="padding: 8px 10px; font-family: monospace; font-size: 11px;">${escapeHtml(m.v2_field)}</td>
+                    <td style="padding: 8px 10px; text-align: center;">
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; ${getConfidenceStyle(m.confidence)}">
+                            ${Math.round((m.confidence || 0) * 100)}%
+                        </span>
+                    </td>
+                    <td style="padding: 8px 10px; text-align: center; font-size: 10px; color: #666;">${m.source || 'learned'}</td>
+                    <td style="padding: 8px 10px; text-align: center;">
+                        <button onclick="deleteMappingFromModal('${escapeHtml(m.v1_field)}')" style="font-size: 10px; padding: 3px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getConfidenceStyle(confidence) {
+            if (confidence >= 0.8) return 'background: #4caf50; color: white;';
+            if (confidence >= 0.5) return 'background: #ffb300; color: #333;';
+            return 'background: #ff9800; color: white;';
+        }
+
+        function filterMappings() {
+            const searchTerm = document.getElementById('mappingSearchInput').value.toLowerCase();
+            const filtered = allMappings.filter(m =>
+                m.v1_field.toLowerCase().includes(searchTerm) ||
+                m.v2_field.toLowerCase().includes(searchTerm) ||
+                (m.source || '').toLowerCase().includes(searchTerm)
+            );
+            renderMappingsTable(filtered);
+            document.getElementById('mappingCount').textContent = `${filtered.length} of ${allMappings.length} mappings`;
+        }
+
+        function sortMappings(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+
+            allMappings.sort((a, b) => {
+                let valA = a[column] || '';
+                let valB = b[column] || '';
+
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+
+                if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+                if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            filterMappings(); // Re-render with filter applied
+        }
+
+        async function deleteMappingFromModal(v1Field) {
+            if (!confirm(`Delete mapping for "${v1Field}"?`)) return;
+
+            try {
+                const response = await fetch(`/api/mapping/${encodeURIComponent(v1Field)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    allMappings = allMappings.filter(m => m.v1_field !== v1Field);
+                    filterMappings();
+                    document.getElementById('mappingCount').textContent = `${allMappings.length} mappings`;
+                } else {
+                    alert('Failed to delete: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        async function exportMappings() {
+            try {
+                const response = await fetch('/api/mappings/export');
+                const data = await response.json();
+
+                // Create downloadable file
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'learned_mappings_export.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                alert('Mappings exported successfully!');
+            } catch (err) {
+                alert('Export failed: ' + err.message);
+            }
+        }
+
+        async function importMappings(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const mode = confirm('Click OK to MERGE with existing mappings, or Cancel to REPLACE all mappings') ? 'merge' : 'replace';
+
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                const response = await fetch(`/api/mappings/import?mode=${mode}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message);
+                    await loadAllMappings(); // Refresh the table
+                } else {
+                    alert('Import failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Import failed: ' + err.message);
+            }
+
+            // Reset file input
+            input.value = '';
+        }
+
+        // ==================== Account Management Functions ====================
+
+        // Load accounts and populate UI
+        async function loadAccounts() {
+            try {
+                const response = await fetch('/api/accounts');
+                const data = await response.json();
+
+                if (data.success) {
+                    const accounts = data.accounts || [];
+                    const select = document.getElementById('accountSelect');
+                    const logoutBtn = document.getElementById('logoutBtn');
+                    const refreshAccountBtn = document.getElementById('refreshAccountBtn');
+
+                    // Clear and populate select
+                    select.innerHTML = '<option value="">No account selected</option>';
+
+                    accounts.forEach(acc => {
+                        const option = document.createElement('option');
+                        option.value = acc.email;
+                        option.textContent = `${acc.email} (${acc.account_slug || 'unknown'})`;
+                        if (acc.is_active) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+
+                    // Show logout and refresh buttons if authenticated
+                    const hasActiveAccount = accounts.some(a => a.is_active);
+                    logoutBtn.style.display = hasActiveAccount ? 'block' : 'none';
+                    refreshAccountBtn.style.display = hasActiveAccount ? 'block' : 'none';
+
+                    // Update accounts list with remove buttons
+                    updateAccountsList(accounts);
+                }
+            } catch (err) {
+                console.error('Error loading accounts:', err);
+            }
+        }
+
+        // Update accounts list with remove buttons
+        function updateAccountsList(accounts) {
+            const listEl = document.getElementById('accountsList');
+
+            if (accounts.length === 0) {
+                listEl.style.display = 'none';
+                return;
+            }
+
+            listEl.style.display = 'block';
+            listEl.innerHTML = '';
+
+            accounts.forEach(acc => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee;';
+                item.innerHTML = `
+                    <div>
+                        <div style="font-size: 12px; font-weight: 600;">${acc.email}</div>
+                        <div style="font-size: 10px; color: #666;">${acc.account_slug || 'unknown'}</div>
+                    </div>
+                    <button onclick="removeAccount('${acc.email}')" style="font-size: 10px; padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        // Switch to a different account
+        async function switchAccount(email) {
+            if (!email) return;
+
+            try {
+                const response = await fetch('/api/accounts/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    isAuthenticated = true;
+                    updateAuthUI({
+                        authenticated: true,
+                        account: data.account
+                    });
+                    await loadAccounts(); // Refresh the list
+                } else {
+                    alert('Failed to switch account: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error switching account: ' + err.message);
+            }
+        }
+
+        // Show add account form
+        function showAddAccount() {
+            document.getElementById('addAccountForm').style.display = 'block';
+            document.getElementById('newAccountEmail').focus();
+        }
+
+        // Hide add account form
+        function hideAddAccount() {
+            document.getElementById('addAccountForm').style.display = 'none';
+            document.getElementById('newAccountEmail').value = '';
+            document.getElementById('newAccountPassword').value = '';
+        }
+
+        // Add a new account
+        async function addNewAccount() {
+            const email = document.getElementById('newAccountEmail').value.trim();
+            const password = document.getElementById('newAccountPassword').value;
+
+            if (!email || !password) {
+                alert('Please enter email and password');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    isAuthenticated = true;
+                    updateAuthUI({
+                        authenticated: true,
+                        account: data.account
+                    });
+                    hideAddAccount();
+                    await loadAccounts();
+                } else {
+                    alert('Failed to add account: ' + (data.error || 'Authentication failed'));
+                }
+            } catch (err) {
+                alert('Error adding account: ' + err.message);
+            }
+        }
+
+        // Remove an account
+        async function removeAccount(email) {
+            if (!confirm(`Remove account ${email}?`)) return;
+
+            try {
+                const response = await fetch(`/api/accounts/${encodeURIComponent(email)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    await loadAccounts();
+                    // Re-check auth status
+                    checkAuthStatus();
+                } else {
+                    alert('Failed to remove account: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error removing account: ' + err.message);
+            }
+        }
+
+        // Logout current account
+        async function performLogout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                isAuthenticated = false;
+                updateAuthUI({ authenticated: false });
+                await loadAccounts();
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+        }
+
+        // Refresh account info from /v1/me (when switching accounts in ScopeStack)
+        async function refreshAccount() {
+            try {
+                const response = await fetch('/api/auth/refresh-account', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    updateAuthUI({ authenticated: true, account: data.account });
+                    alert('Account refreshed: ' + (data.account.account_slug || data.account.email));
+                } else {
+                    alert('Failed to refresh account: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error refreshing account: ' + err.message);
+            }
+        }
+
+        // ==================== End Account Management ====================
+
+        // Show settings modal
+        async function showSettings() {
+            // Load accounts and update UI
+            await loadAccounts();
+
+            // Load current AI settings into form
+            document.getElementById('enableAI').checked = aiSettings.enabled;
+            document.getElementById('aiProvider').value = aiSettings.provider;
+            document.getElementById('maxIterations').value = aiSettings.maxIterations;
+
+            // Update API key sections and toggle visibility
+            updateApiKeyStatus();
+            toggleAISettings();
+
+            document.getElementById('settingsModal').classList.add('show');
+        }
+
+        // Close settings modal
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('show');
+        }
+
+        // Toggle AI settings visibility
+        function toggleAISettings() {
+            const enabled = document.getElementById('enableAI').checked;
+            const aiProviderSettings = document.getElementById('aiProviderSettings');
+
+            aiProviderSettings.style.display = enabled ? 'block' : 'none';
+
+            if (enabled) {
+                updateApiKeyStatus();
+            }
+        }
+
+        // Update API key status display
+        function updateApiKeyStatus() {
+            const provider = document.getElementById('aiProvider').value;
+            const hasKey = aiSettings.apiKey === '***saved***';
+
+            const inputSection = document.getElementById('apiKeyInputSection');
+            const statusSection = document.getElementById('apiKeyStatusSection');
+            const providerName = document.getElementById('apiKeyProviderName');
+
+            if (hasKey) {
+                inputSection.style.display = 'none';
+                statusSection.style.display = 'block';
+                providerName.textContent = provider === 'openai' ? 'OpenAI' : 'Anthropic';
+            } else {
+                inputSection.style.display = 'block';
+                statusSection.style.display = 'none';
+            }
+        }
+
+        // Change API key
+        function changeApiKey() {
+            document.getElementById('apiKeyInputSection').style.display = 'block';
+            document.getElementById('apiKeyStatusSection').style.display = 'none';
+            document.getElementById('aiApiKey').value = '';
+            document.getElementById('aiApiKey').focus();
+        }
+
+        // Save API key
+        async function saveApiKey() {
+            const provider = document.getElementById('aiProvider').value;
+            const apiKey = document.getElementById('aiApiKey').value.trim();
+
+            if (!apiKey) {
+                alert('Please enter an API key');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveApiKeyBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Validating...';
+
+            try {
+                // Validate the key first
+                const validateResponse = await fetch('/api/settings/ai/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, api_key: apiKey })
+                });
+
+                const validateData = await validateResponse.json();
+
+                if (!validateData.valid) {
+                    alert('Invalid API key: ' + (validateData.error || 'Validation failed'));
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save Key';
+                    return;
+                }
+
+                // Save settings
+                const enabled = document.getElementById('enableAI').checked;
+                const maxIterations = parseInt(document.getElementById('maxIterations').value) || 4;
+
+                const saveResponse = await fetch('/api/settings/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        enabled,
+                        provider,
+                        apiKey,
+                        maxIterations
+                    })
+                });
+
+                const saveData = await saveResponse.json();
+
+                if (saveData.success) {
+                    aiSettings.enabled = enabled;
+                    aiSettings.provider = provider;
+                    aiSettings.maxIterations = maxIterations;
+                    aiSettings.apiKey = '***saved***';
+
+                    updateApiKeyStatus();
+                } else {
+                    alert('Failed to save settings: ' + (saveData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Key';
+            }
+        }
+
+        // Handle Enter key in login form
+        document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performLogin();
+            }
+        });
+
+        document.getElementById('loginEmail').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginPassword').focus();
+            }
+        });
+
+        // Note: Modal click-outside handling is in base.html
+    </script>
+{% endblock %}

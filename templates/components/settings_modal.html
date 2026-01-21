@@ -1,0 +1,304 @@
+<!-- Settings Modal -->
+<div class="modal" id="settingsModal">
+    <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+        <h2>Settings</h2>
+        <p>Configure ScopeStack authentication and AI providers.</p>
+
+        <!-- ScopeStack Auth Section -->
+        <div class="settings-section">
+            <h3>ScopeStack Authentication</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 12px;">
+                Status: <span id="settingsAuthStatus" style="font-weight: bold;">Not authenticated</span>
+                <span id="settingsAuthType" style="font-size: 11px; color: #999; margin-left: 8px;"></span>
+            </p>
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <button onclick="window.location.href='/oauth/authorize'" class="btn-sso" style="flex: 2; padding: 10px 16px; font-size: 14px;">
+                    Login with SSO
+                </button>
+                <button onclick="showLogin(); closeSettings();" class="btn-secondary" style="flex: 1; padding: 10px 16px; font-size: 13px;">
+                    Service Account
+                </button>
+            </div>
+            <div id="settingsAccountActions" style="display: none; gap: 8px;">
+                <button onclick="refreshAccount()" class="btn-secondary" style="flex: 1; padding: 8px 16px; font-size: 13px;">
+                    Refresh Account
+                </button>
+                <button onclick="performLogout(); closeSettings();" class="btn-secondary" style="flex: 1; padding: 8px 16px; font-size: 13px;">
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- AI Provider Section -->
+        <div class="settings-section" style="background: #f0f7ff; border-left: 4px solid #0066cc;">
+            <h3>AI-Powered Conversion</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 16px;">
+                Enable AI to automatically iterate and improve template conversions by comparing v1 and v2 outputs.
+            </p>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" id="enableAI" onchange="toggleAISettings()">
+                    <span>Enable AI-powered iterative conversion</span>
+                </label>
+            </div>
+
+            <div id="aiProviderSettings" style="display: none;">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label>AI Provider</label>
+                    <select id="aiProvider" onchange="updateApiKeyStatus()" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                        <option value="openai">OpenAI (GPT-4)</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                    </select>
+                </div>
+
+                <!-- API Key Input (shown when no key saved) -->
+                <div id="apiKeyInputSection" style="display: none;">
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label>API Key</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="password" id="aiApiKey" placeholder="sk-..." style="flex: 1; padding: 8px; border: 2px solid #e0e0e0; border-radius: 8px; font-family: monospace;">
+                            <button onclick="saveApiKey()" id="saveApiKeyBtn" class="btn-primary" style="white-space: nowrap;">Save Key</button>
+                        </div>
+                        <p style="font-size: 11px; color: #666; margin-top: 4px;">
+                            Your API key is stored securely in ~/.scopestack/tokens.json
+                        </p>
+                    </div>
+                </div>
+
+                <!-- API Key Status (shown when key saved) -->
+                <div id="apiKeyStatusSection" style="display: none;">
+                    <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="color: #155724; font-size: 18px;">&#10003;</span>
+                                <span style="color: #155724; font-weight: 600;" id="apiKeyProviderName">OpenAI</span>
+                                <span style="color: #155724;">API key saved</span>
+                            </div>
+                            <button onclick="changeApiKey()" class="btn-secondary" style="font-size: 12px; padding: 4px 12px;">Change Key</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Max Iterations</label>
+                    <input type="number" id="maxIterations" value="4" min="1" max="10" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                    <p style="font-size: 11px; color: #666; margin-top: 4px;">
+                        Number of times the AI will attempt to improve the conversion (1-10).
+                    </p>
+                </div>
+            </div>
+
+            <!-- Learning Statistics -->
+            <div id="learningStatsSection" style="background: #e8f5e9; border: 1px solid #c8e6c9; padding: 12px; border-radius: 8px; margin-top: 16px; display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <h4 style="font-size: 14px; margin: 0; color: #2e7d32;">Learning Cache Statistics</h4>
+                    <button onclick="refreshLearningStats()" class="btn-secondary" style="font-size: 11px; padding: 4px 8px;">Refresh</button>
+                </div>
+                <div id="learningStatsContent" style="font-size: 12px; color: #666;">
+                    Loading...
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Console Section -->
+        <div class="settings-section" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+            <h3>Debug Console</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 16px;">
+                View API call logs for troubleshooting template upload and conversion issues.
+            </p>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button onclick="toggleDebugConsole()" id="debugConsoleToggle" class="btn-secondary" style="flex: 1;">
+                    Show API Logs
+                </button>
+                <button onclick="clearDebugLogs()" class="btn-secondary">
+                    Clear Logs
+                </button>
+            </div>
+
+            <!-- Debug Console Display -->
+            <div id="debugConsoleDisplay" style="display: none; margin-top: 12px;">
+                <div style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px;">
+                    <div id="debugLogsContent">Loading logs...</div>
+                </div>
+                <div style="margin-top: 8px; display: flex; justify-content: space-between; font-size: 11px; color: #666;">
+                    <span id="debugLogCount">0 logs</span>
+                    <button onclick="refreshDebugLogs()" class="btn-secondary" style="font-size: 11px; padding: 4px 12px;">
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeSettings()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // AI Settings functions (used by both pages)
+    function toggleAISettings() {
+        const enabled = document.getElementById('enableAI').checked;
+        const settingsDiv = document.getElementById('aiProviderSettings');
+        const statsDiv = document.getElementById('learningStatsSection');
+        if (settingsDiv) {
+            settingsDiv.style.display = enabled ? 'block' : 'none';
+        }
+        if (statsDiv) {
+            statsDiv.style.display = enabled ? 'block' : 'none';
+        }
+        if (enabled) {
+            updateApiKeyStatus();
+            if (typeof refreshLearningStats === 'function') {
+                refreshLearningStats();
+            }
+        }
+    }
+
+    async function updateApiKeyStatus() {
+        const provider = document.getElementById('aiProvider')?.value || 'openai';
+        const inputSection = document.getElementById('apiKeyInputSection');
+        const statusSection = document.getElementById('apiKeyStatusSection');
+        const providerName = document.getElementById('apiKeyProviderName');
+
+        if (providerName) {
+            providerName.textContent = provider === 'openai' ? 'OpenAI' : 'Anthropic';
+        }
+
+        try {
+            const response = await fetch(`/api/ai/key-status?provider=${provider}`);
+            const data = await response.json();
+
+            if (data.has_key) {
+                if (inputSection) inputSection.style.display = 'none';
+                if (statusSection) statusSection.style.display = 'block';
+            } else {
+                if (inputSection) inputSection.style.display = 'block';
+                if (statusSection) statusSection.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Failed to check API key status:', error);
+            if (inputSection) inputSection.style.display = 'block';
+            if (statusSection) statusSection.style.display = 'none';
+        }
+    }
+
+    async function saveApiKey() {
+        const provider = document.getElementById('aiProvider')?.value || 'openai';
+        const apiKey = document.getElementById('aiApiKey')?.value;
+
+        if (!apiKey) {
+            alert('Please enter an API key');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/ai/save-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, api_key: apiKey })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                updateApiKeyStatus();
+                const keyInput = document.getElementById('aiApiKey');
+                if (keyInput) keyInput.value = '';
+            } else {
+                alert(data.error || 'Failed to save API key');
+            }
+        } catch (error) {
+            console.error('Failed to save API key:', error);
+            alert('Failed to save API key');
+        }
+    }
+
+    function changeApiKey() {
+        const inputSection = document.getElementById('apiKeyInputSection');
+        const statusSection = document.getElementById('apiKeyStatusSection');
+        if (inputSection) inputSection.style.display = 'block';
+        if (statusSection) statusSection.style.display = 'none';
+    }
+
+    // Debug console functions
+    let debugConsoleVisible = false;
+
+    function toggleDebugConsole() {
+        debugConsoleVisible = !debugConsoleVisible;
+        const display = document.getElementById('debugConsoleDisplay');
+        const toggle = document.getElementById('debugConsoleToggle');
+
+        if (display) {
+            display.style.display = debugConsoleVisible ? 'block' : 'none';
+        }
+        if (toggle) {
+            toggle.textContent = debugConsoleVisible ? 'Hide API Logs' : 'Show API Logs';
+        }
+        if (debugConsoleVisible) {
+            refreshDebugLogs();
+        }
+    }
+
+    async function refreshDebugLogs() {
+        try {
+            const response = await fetch('/api/debug/logs');
+            const data = await response.json();
+
+            const content = document.getElementById('debugLogsContent');
+            const count = document.getElementById('debugLogCount');
+
+            if (data.logs && data.logs.length > 0) {
+                if (content) {
+                    content.innerHTML = data.logs.map(log => {
+                        const statusColor = log.response_status >= 400 ? '#ff6b6b' :
+                                           log.response_status >= 200 ? '#69db7c' : '#ffd43b';
+                        return `<div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #333;">
+                            <div style="color: #888; font-size: 10px;">${log.timestamp}</div>
+                            <div><span style="color: #61afef;">${log.method}</span> <span style="color: #98c379;">${log.url}</span></div>
+                            ${log.response_status ? `<div style="color: ${statusColor};">Status: ${log.response_status}</div>` : ''}
+                            ${log.error ? `<div style="color: #ff6b6b;">Error: ${log.error}</div>` : ''}
+                        </div>`;
+                    }).join('');
+                }
+                if (count) {
+                    count.textContent = `${data.logs.length} logs`;
+                }
+            } else {
+                if (content) content.innerHTML = '<span style="color: #666;">No API calls logged yet.</span>';
+                if (count) count.textContent = '0 logs';
+            }
+        } catch (error) {
+            console.error('Failed to fetch debug logs:', error);
+            const content = document.getElementById('debugLogsContent');
+            if (content) content.innerHTML = '<span style="color: #ff6b6b;">Failed to load logs</span>';
+        }
+    }
+
+    async function clearDebugLogs() {
+        try {
+            await fetch('/api/debug/logs', { method: 'DELETE' });
+            refreshDebugLogs();
+        } catch (error) {
+            console.error('Failed to clear logs:', error);
+        }
+    }
+
+    // Learning stats (may be overridden by page-specific implementation)
+    async function refreshLearningStats() {
+        try {
+            const response = await fetch('/api/learning/stats');
+            const data = await response.json();
+            const content = document.getElementById('learningStatsContent');
+            if (content && data) {
+                content.innerHTML = `
+                    <div>Total mappings: ${data.total_mappings || 0}</div>
+                    <div>High confidence: ${data.high_confidence || 0}</div>
+                    <div>Last updated: ${data.last_updated || 'Never'}</div>
+                `;
+            }
+        } catch (error) {
+            console.error('Failed to fetch learning stats:', error);
+        }
+    }
+</script>

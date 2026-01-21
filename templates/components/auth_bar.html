@@ -1,0 +1,17 @@
+<!-- Authentication Bar with Navigation -->
+<div class="auth-bar">
+    <div class="auth-bar-left">
+        <a href="/" class="brand">ScopeStack Utility</a>
+        <div class="nav-links">
+            <a href="/" class="nav-link {% if active_page == 'home' %}active{% endif %}">Home</a>
+            <a href="/converter" class="nav-link {% if active_page == 'converter' %}active{% endif %}">Converter</a>
+            <a href="/data-viewer" class="nav-link {% if active_page == 'data_viewer' %}active{% endif %}">Data Viewer</a>
+        </div>
+    </div>
+    <div class="auth-status">
+        <div class="auth-indicator" id="authIndicator"></div>
+        <span class="auth-text" id="authText">Not authenticated</span>
+        <button class="btn-small" onclick="showSettings()">Settings</button>
+        <button class="btn-small" id="authButton" onclick="showLogin()">Login</button>
+    </div>
+</div>
