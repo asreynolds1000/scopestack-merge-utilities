@@ -147,4 +147,30 @@ pytest
 
 # Run tests with coverage
 pytest --cov=. --cov-report=term-missing
+
+# Run E2E tests (requires app running)
+RUN_E2E_TESTS=1 pytest tests/test_e2e_data_viewer.py -v
 ```
+
+## Data Viewer Patterns
+
+The Merge Data Viewer (`/merge-data-viewer`) uses React (via CDN) with a Miller Columns UI.
+
+### Array Handling
+- `DataStructureExtractor` only extracts `[0]` as a template for arrays
+- `array_count` field tells the frontend how many items actually exist
+- Frontend dynamically generates paths for items `[1]`, `[2]`, etc. using `array_count`
+- **Critical**: When selecting dynamically generated items, store `selectedData` in React state instead of deriving it from `structure[path]` (since paths like `[5]` don't exist in structure)
+
+### OAuth SSO
+- Uses Authorization Code Flow with PKCE
+- `OAUTH_REDIRECT_URI` must be explicitly set in production (Railway terminates SSL, so auto-detection gets `http://`)
+- `SECRET_KEY` required for Flask sessions to persist PKCE state across redirect
+
+## Recent Learnings
+
+### State Management in Data Viewer (2026-01-21)
+When clicking on dynamically generated array items (index > 0), the detail pane didn't appear because `selectedData` was derived from `structure[selectedPath]`, but only `[0]` entries exist in the structure. Fixed by storing `selectedData` directly in state when items are clicked.
+
+### OAuth Redirect URI (2026-01-21)
+Railway terminates SSL at the load balancer, so `request.host_url` returns `http://` instead of `https://`. Always set `OAUTH_REDIRECT_URI` explicitly with the `https://` scheme for production deployments.
