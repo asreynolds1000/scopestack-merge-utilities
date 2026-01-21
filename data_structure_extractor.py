@@ -17,10 +17,15 @@ class DataStructureExtractor:
     - Array counts and item structures
     - Nested object hierarchies
     - Sample values for each field
+
+    Modes:
+    - template_only=True: Only extract [0] as a template (faster, smaller payload)
+    - template_only=False: Extract all array items (accurate sample values)
     """
 
-    def __init__(self):
+    def __init__(self, template_only: bool = True):
         self.structures = {}
+        self.template_only = template_only
 
     def extract_structure(self, merge_data: Dict, prefix: str = "", strip_prefix: str = "data.attributes.content.") -> Dict:
         """
@@ -97,25 +102,36 @@ class DataStructureExtractor:
             info['array_count'] = len(value)
 
             if len(value) > 0:
-                # Analyze first item only to understand array structure (not all items!)
                 first_item = value[0]
+                info['item_type'] = self._infer_type(first_item) if not isinstance(first_item, (dict, list)) else ('object' if isinstance(first_item, dict) else 'array')
 
-                if isinstance(first_item, dict):
-                    # Array of objects - extract child structure from FIRST item only
-                    info['item_type'] = 'object'
-                    info['children'] = self.extract_structure(first_item, f"{path}[0]", strip_prefix="")
-                elif isinstance(first_item, list):
-                    # Array of arrays (nested) - extract first item only
-                    info['item_type'] = 'array'
+                all_children = {}
+
+                if self.template_only:
+                    # Template mode: only extract [0] as a template (faster, smaller payload)
                     item_path = f"{path}[0]"
-                    item_info = self._extract_field_info(item_path, first_item)
-                    info['children'] = {item_path: item_info}
-                    if item_info.get('children'):
-                        info['children'].update(item_info['children'])
+                    if isinstance(first_item, dict):
+                        all_children = self.extract_structure(first_item, item_path, strip_prefix="")
+                    elif isinstance(first_item, list):
+                        item_info = self._extract_field_info(item_path, first_item)
+                        all_children[item_path] = item_info
+                        if item_info.get('children'):
+                            all_children.update(item_info['children'])
                 else:
-                    # Array of primitives
-                    info['item_type'] = self._infer_type(first_item)
-                    info['children'] = {}
+                    # Full mode: extract ALL items for accurate sample values
+                    for index, item in enumerate(value):
+                        item_path = f"{path}[{index}]"
+
+                        if isinstance(item, dict):
+                            item_children = self.extract_structure(item, item_path, strip_prefix="")
+                            all_children.update(item_children)
+                        elif isinstance(item, list):
+                            item_info = self._extract_field_info(item_path, item)
+                            all_children[item_path] = item_info
+                            if item_info.get('children'):
+                                all_children.update(item_info['children'])
+
+                info['children'] = all_children
             else:
                 # Empty array
                 info['item_type'] = 'unknown'

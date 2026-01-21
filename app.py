@@ -4212,6 +4212,9 @@ def get_merge_data_structure(project_id):
         if view not in ['v1', 'v2', 'both']:
             view = 'both'
 
+        # Get full_data parameter (false = template only, true = all array items)
+        full_data = request.args.get('full_data', 'false').lower() == 'true'
+
         # Check authentication
         if not auth_manager.is_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
@@ -4221,7 +4224,8 @@ def get_merge_data_structure(project_id):
         fetcher = MergeDataFetcher()
         fetcher.authenticate(token=token)
 
-        extractor = DataStructureExtractor()
+        # template_only=True means only extract [0], template_only=False means extract all items
+        extractor = DataStructureExtractor(template_only=not full_data)
         v1_structure = None
         v2_structure = None
 

@@ -1232,63 +1232,78 @@
                     let childItems;
 
                     if (item.data.is_array) {
-                        // For arrays, use array_count to generate all indices
-                        // The structure extractor only extracts [0] as a template, but we know the count
+                        // For arrays, show each item - use actual data if available, fall back to [0] template
                         const parentPath = item.path;
                         const arrayCount = item.data.array_count || 0;
 
-                        // Get the template structure from [0]
+                        // Get template from [0] for fallback in template mode
                         const templatePath = `${parentPath}[0]`;
-                        const templateItem = item.data.children[templatePath];
                         const templateChildren = {};
                         Object.entries(item.data.children || {}).forEach(([childPath, childData]) => {
                             if (childPath.startsWith(templatePath + '.')) {
-                                // Store with relative path (without the [0] prefix)
                                 const relativePath = childPath.replace(templatePath + '.', '');
                                 templateChildren[relativePath] = childData;
                             }
                         });
+                        const templateNameField = ['name', 'title', 'label', 'description'].find(f => templateChildren[f]);
+                        const templateNameValue = templateNameField && templateChildren[templateNameField]?.sample_value;
 
                         if (arrayCount > 0) {
-                            // Try to find a 'name' or similar field in template for meaningful display
-                            const nameField = ['name', 'title', 'label', 'description'].find(f => templateChildren[f]);
-                            const templateNameValue = nameField && templateChildren[nameField].sample_value;
-
-                            // Create items for each array index using the template structure
                             childItems = Array.from({ length: arrayCount }, (_, index) => {
                                 const arrayItemPath = `${parentPath}[${index}]`;
 
-                                // Check if the template item is itself an array (array of arrays)
-                                if (templateItem && templateItem.is_array) {
+                                // Get the ACTUAL children for this specific index from structure
+                                const itemChildren = {};
+                                Object.entries(item.data.children || {}).forEach(([childPath, childData]) => {
+                                    if (childPath.startsWith(arrayItemPath + '.')) {
+                                        itemChildren[childPath] = childData;
+                                    }
+                                });
+
+                                // Check if we have actual data for this index
+                                const hasActualData = Object.keys(itemChildren).length > 0;
+
+                                // Check if this item exists directly in children (for arrays of arrays/primitives)
+                                const directItem = item.data.children[arrayItemPath];
+
+                                // Handle array of arrays
+                                if (directItem && directItem.is_array) {
                                     return {
                                         path: arrayItemPath,
                                         displayName: `[${index}]`,
+                                        data: directItem
+                                    };
+                                }
+
+                                // Try to find a 'name' field for this specific item
+                                const nameField = ['name', 'title', 'label', 'description'].find(f =>
+                                    itemChildren[`${arrayItemPath}.${f}`]
+                                );
+                                const itemName = nameField && itemChildren[`${arrayItemPath}.${nameField}`]?.sample_value;
+
+                                // If no actual data, fall back to template structure
+                                if (!hasActualData && Object.keys(templateChildren).length > 0) {
+                                    // Create children based on template
+                                    const fallbackChildren = {};
+                                    Object.entries(templateChildren).forEach(([relativePath, childData]) => {
+                                        const fullPath = `${arrayItemPath}.${relativePath}`;
+                                        fallbackChildren[fullPath] = { ...childData, path: fullPath };
+                                    });
+
+                                    return {
+                                        path: arrayItemPath,
+                                        displayName: templateNameValue ? `[${index}] (${templateNameValue})` : `[${index}]`,
                                         data: {
-                                            type: 'array',
-                                            is_array: true,
-                                            array_count: templateItem.array_count || 0,
-                                            item_type: templateItem.item_type,
-                                            children: templateItem.children || {},
-                                            sample_value: `[${templateItem.array_count || 0} items]`
+                                            type: 'object',
+                                            is_array: false,
+                                            children: fallbackChildren,
+                                            sample_value: `{${Object.keys(templateChildren).length} fields} (template)`
                                         }
                                     };
                                 }
 
-                                // Otherwise it's an array of objects - create children for this index
-                                const itemChildren = {};
-                                Object.entries(templateChildren).forEach(([relativePath, childData]) => {
-                                    const fullPath = `${arrayItemPath}.${relativePath}`;
-                                    itemChildren[fullPath] = { ...childData, path: fullPath };
-                                });
-
-                                // Generate display name: use name field from template for [0], show index for others
-                                let displayName = `[${index}]`;
-                                if (index === 0 && templateNameValue) {
-                                    displayName = `${templateNameValue}`;
-                                } else if (templateNameValue) {
-                                    // For other indices, show index + template structure hint
-                                    displayName = `[${index}] (item)`;
-                                }
+                                // Generate display name using actual item's name field
+                                const displayName = itemName || `[${index}]`;
 
                                 return {
                                     path: arrayItemPath,
@@ -1297,9 +1312,7 @@
                                         type: 'object',
                                         is_array: false,
                                         children: itemChildren,
-                                        sample_value: index === 0 && templateNameValue
-                                            ? templateNameValue
-                                            : `{${Object.keys(templateChildren).length} fields}`
+                                        sample_value: itemName || `{${Object.keys(itemChildren).length} fields}`
                                     }
                                 };
                             });
@@ -1740,6 +1753,7 @@
             const [v2Selected, setV2Selected] = useState(null);
             const [v1Highlights, setV1Highlights] = useState([]);
             const [v2Highlights, setV2Highlights] = useState([]);
+            const [fullDataMode, setFullDataMode] = useState(false); // false = template only, true = all array items
             const [v1HighlightScores, setV1HighlightScores] = useState({});
             const [v2HighlightScores, setV2HighlightScores] = useState({});
             const [successMessage, setSuccessMessage] = useState('');
@@ -1876,7 +1890,7 @@
                 setError(null);
 
                 try {
-                    const url = `/api/merge-data-structure/${idToLoad}?view=${actualView}`;
+                    const url = `/api/merge-data-structure/${idToLoad}?view=${actualView}&full_data=${fullDataMode}`;
                     console.log('Fetching:', url);
                     const response = await fetch(url);
                     const result = await response.json();
@@ -2254,6 +2268,24 @@
                                 V2 Only {v2Loaded && '✓'} {loadingView === 'v2' && '⏳'}
                             </button>
                         </div>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '15px', fontSize: '12px', color: '#666', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={fullDataMode}
+                                onChange={(e) => {
+                                    setFullDataMode(e.target.checked);
+                                    // Clear loaded data so it reloads with new mode
+                                    setV1Loaded(false);
+                                    setV2Loaded(false);
+                                    setData(null);
+                                }}
+                                style={{ cursor: 'pointer' }}
+                            />
+                            <span title="When enabled, extracts all array items with actual sample values (slower). When disabled, uses first item as template (faster).">
+                                Full Data {fullDataMode ? '(all items)' : '(template)'}
+                            </span>
+                        </label>
 
                         {(v1Selected || v2Selected) && (
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>

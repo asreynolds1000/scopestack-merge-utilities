@@ -33,9 +33,9 @@ class TestArrayExtraction:
         assert structure["locations"]["is_array"] is True
         assert structure["locations"]["array_count"] == 5
 
-    def test_array_children_only_has_first_item(self):
-        """Verify that only [0] is extracted as a template (by design)."""
-        extractor = DataStructureExtractor()
+    def test_array_template_only_mode(self):
+        """Verify that template_only=True extracts only [0]."""
+        extractor = DataStructureExtractor(template_only=True)
         data = {
             "items": [
                 {"id": 1, "value": "first"},
@@ -46,11 +46,35 @@ class TestArrayExtraction:
 
         structure = extractor.extract_structure(data, strip_prefix="")
 
-        # Only items[0] should exist in children, not items[1] or items[2]
+        # Only items[0] should exist in children
         children_paths = list(structure["items"]["children"].keys())
         assert any("[0]" in path for path in children_paths)
         assert not any("[1]" in path for path in children_paths)
         assert not any("[2]" in path for path in children_paths)
+
+    def test_array_full_data_mode(self):
+        """Verify that template_only=False extracts all items with actual data."""
+        extractor = DataStructureExtractor(template_only=False)
+        data = {
+            "items": [
+                {"id": 1, "value": "first"},
+                {"id": 2, "value": "second"},
+                {"id": 3, "value": "third"},
+            ]
+        }
+
+        structure = extractor.extract_structure(data, strip_prefix="")
+
+        # All items should exist in children
+        children_paths = list(structure["items"]["children"].keys())
+        assert any("[0]" in path for path in children_paths)
+        assert any("[1]" in path for path in children_paths)
+        assert any("[2]" in path for path in children_paths)
+
+        # Each item should have its own sample values
+        assert structure["items"]["children"]["items[0].id"]["sample_value"] == 1
+        assert structure["items"]["children"]["items[1].id"]["sample_value"] == 2
+        assert structure["items"]["children"]["items[2].id"]["sample_value"] == 3
 
     def test_nested_array_count(self):
         """Verify array_count works for nested arrays."""
