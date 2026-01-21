@@ -7,8 +7,12 @@ Handles OAuth2 authentication with refresh token persistence
 import requests
 import json
 import os
+import secrets
+import hashlib
+import base64
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 import getpass
 
 
@@ -130,6 +134,7 @@ class AuthManager:
             user_info = self.get_user_info(auth_data['access_token'])
 
             self.tokens = {
+                'auth_type': 'password',
                 'email': email,
                 'access_token': auth_data['access_token'],
                 'refresh_token': auth_data.get('refresh_token'),
@@ -223,10 +228,122 @@ class AuthManager:
             user_data = response.json()
             return {
                 'account_slug': user_data.get('data', {}).get('attributes', {}).get('account-slug'),
-                'account_id': user_data.get('data', {}).get('attributes', {}).get('account-id')
+                'account_id': user_data.get('data', {}).get('attributes', {}).get('account-id'),
+                'email': user_data.get('data', {}).get('attributes', {}).get('email')
             }
         except:
             return {}
+
+    # ==================== OAuth Authorization Code Flow with PKCE ====================
+
+    def generate_pkce_pair(self) -> tuple:
+        """
+        Generate PKCE code_verifier and code_challenge
+
+        Returns:
+            tuple: (code_verifier, code_challenge)
+        """
+        code_verifier = secrets.token_urlsafe(32)
+        digest = hashlib.sha256(code_verifier.encode()).digest()
+        code_challenge = base64.urlsafe_b64encode(digest).rstrip(b'=').decode()
+        return code_verifier, code_challenge
+
+    def generate_state(self) -> str:
+        """Generate random state for CSRF protection"""
+        return secrets.token_urlsafe(32)
+
+    def get_authorization_url(self, redirect_uri: str, state: str, code_challenge: str) -> str:
+        """
+        Build the ScopeStack authorization URL for OAuth2 Authorization Code Flow
+
+        Args:
+            redirect_uri: The callback URL to redirect to after authorization
+            state: Random state for CSRF protection
+            code_challenge: PKCE code challenge (S256)
+
+        Returns:
+            str: The full authorization URL
+        """
+        params = {
+            'client_id': self.client_id,
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'state': state,
+            'code_challenge': code_challenge,
+            'code_challenge_method': 'S256',
+        }
+        return f"{self.base_url}/oauth/authorize?{urlencode(params)}"
+
+    def exchange_code_for_tokens(self, code: str, redirect_uri: str, code_verifier: str) -> dict:
+        """
+        Exchange authorization code for tokens, then fetch /me for account context
+
+        Args:
+            code: The authorization code received from callback
+            redirect_uri: The same redirect_uri used in authorization request
+            code_verifier: The PKCE code verifier
+
+        Returns:
+            dict: {'success': True, 'account': {...}} or {'success': False, 'error': '...'}
+        """
+        if not self.client_id or not self.client_secret:
+            return {'success': False, 'error': 'Client credentials not configured'}
+
+        try:
+            # Exchange code for tokens
+            response = requests.post(
+                f"{self.base_url}/oauth/token",
+                data={
+                    'grant_type': 'authorization_code',
+                    'client_id': self.client_id,
+                    'client_secret': self.client_secret,
+                    'code': code,
+                    'redirect_uri': redirect_uri,
+                    'code_verifier': code_verifier
+                }
+            )
+            response.raise_for_status()
+
+            auth_data = response.json()
+
+            # Calculate expiration time
+            expires_in = auth_data.get('expires_in', 7200)
+            expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+            # Get user info from /v1/me
+            user_info = self.get_user_info(auth_data['access_token'])
+
+            self.tokens = {
+                'auth_type': 'authorization_code',
+                'email': user_info.get('email'),
+                'access_token': auth_data['access_token'],
+                'refresh_token': auth_data.get('refresh_token'),
+                'expires_in': expires_in,
+                'expires_at': expires_at.isoformat(),
+                'account_slug': user_info.get('account_slug'),
+                'account_id': user_info.get('account_id'),
+                'authenticated_at': datetime.now().isoformat()
+            }
+
+            self.save_tokens()
+            return {
+                'success': True,
+                'account': {
+                    'email': user_info.get('email'),
+                    'account_slug': user_info.get('account_slug'),
+                    'account_id': user_info.get('account_id')
+                }
+            }
+
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    error_msg = error_detail.get('error_description', error_detail.get('error', str(e)))
+                except:
+                    error_msg = f"HTTP {e.response.status_code}"
+            return {'success': False, 'error': error_msg}
 
     def get_access_token(self):
         """
@@ -269,6 +386,7 @@ class AuthManager:
             return None
 
         return {
+            'auth_type': self.tokens.get('auth_type', 'password'),
             'email': self.tokens.get('email'),
             'account_slug': self.tokens.get('account_slug'),
             'account_id': self.tokens.get('account_id'),
@@ -406,6 +524,7 @@ class AuthManager:
 
             # Create account entry
             account = {
+                'auth_type': 'password',
                 'email': email,
                 'access_token': auth_data['access_token'],
                 'refresh_token': auth_data.get('refresh_token'),

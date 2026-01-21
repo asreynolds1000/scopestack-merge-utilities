@@ -681,6 +681,48 @@
             flex: 1;
         }
 
+        /* SSO Button Styles */
+        .btn-sso {
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .btn-sso:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: #999;
+            font-size: 13px;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .auth-divider span {
+            padding: 0 12px;
+        }
+
         .mapping-item {
             background: white;
             padding: 16px;
@@ -924,9 +966,26 @@
 
         <!-- Login Modal -->
         <div class="modal" id="loginModal">
-            <div class="modal-content">
+            <div class="modal-content" style="max-width: 420px;">
                 <h2>🔐 Login to ScopeStack</h2>
-                <p style="color: #666; margin-bottom: 24px;">Enter your ScopeStack credentials to enable validation features and persistent authentication.</p>
+                <p style="color: #666; margin-bottom: 24px;">Sign in to enable validation features and persistent authentication.</p>
+
+                <!-- SSO Button (Primary) -->
+                <button class="btn-sso" onclick="window.location.href='/oauth/authorize'">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                        <polyline points="10 17 15 12 10 7"/>
+                        <line x1="15" y1="12" x2="3" y2="12"/>
+                    </svg>
+                    Login with ScopeStack SSO
+                </button>
+
+                <!-- Divider -->
+                <div class="auth-divider">
+                    <span>or use service account</span>
+                </div>
+
+                <!-- Email/Password Form (Secondary) -->
                 <div class="form-group">
                     <label>Email</label>
                     <input type="email" id="loginEmail" placeholder="your.email@company.com">
@@ -955,10 +1014,16 @@
                     </h3>
                     <p style="font-size: 13px; color: #666; margin-bottom: 12px;">
                         Status: <span id="settingsAuthStatus" style="font-weight: bold;">Not authenticated</span>
+                        <span id="settingsAuthType" style="font-size: 11px; color: #999; margin-left: 8px;"></span>
                     </p>
-                    <button onclick="showLogin(); closeSettings();" class="btn-secondary" style="width: 100%;">
-                        Login to ScopeStack
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="window.location.href='/oauth/authorize'" class="btn-sso" style="flex: 2; padding: 10px 16px; font-size: 14px;">
+                            Login with SSO
+                        </button>
+                        <button onclick="showLogin(); closeSettings();" class="btn-secondary" style="flex: 1; padding: 10px 16px; font-size: 13px;">
+                            Service Account
+                        </button>
+                    </div>
                 </div>
 
                 <!-- AI Provider Section -->
@@ -1787,6 +1852,17 @@ Example: 'The customer name field is still not mapping correctly' or 'Focus on f
             showWorkflow('convert');
             // Make convert workflow visible immediately
             document.getElementById('convertWorkflow').style.display = 'block';
+
+            // Check for OAuth callback success
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auth') === 'success') {
+                // Clean up URL (remove query parameter)
+                window.history.replaceState({}, document.title, window.location.pathname);
+                // Show success message after auth check completes
+                setTimeout(() => {
+                    showAlert('success', 'Successfully logged in via SSO!');
+                }, 500);
+            }
         });
 
         async function checkAuthStatus() {
@@ -1810,12 +1886,25 @@ Example: 'The customer name field is still not mapping correctly' or 'Focus on f
             const indicator = document.getElementById('authIndicator');
             const text = document.getElementById('authText');
             const button = document.getElementById('authButton');
+            const settingsAuthStatus = document.getElementById('settingsAuthStatus');
+            const settingsAuthType = document.getElementById('settingsAuthType');
 
             if (authenticated && account) {
                 indicator.classList.add('authenticated');
-                text.innerHTML = `<span class="auth-email">${account.email}</span>`;
+                const displayEmail = account.email || account.account_slug || 'Authenticated';
+                text.innerHTML = `<span class="auth-email">${displayEmail}</span>`;
                 button.textContent = 'Logout';
                 button.onclick = performLogout;
+
+                // Update settings modal auth status
+                if (settingsAuthStatus) {
+                    settingsAuthStatus.textContent = displayEmail;
+                    settingsAuthStatus.style.color = '#28a745';
+                }
+                if (settingsAuthType && account.auth_type) {
+                    const authTypeLabel = account.auth_type === 'authorization_code' ? '(SSO)' : '(Service Account)';
+                    settingsAuthType.textContent = authTypeLabel;
+                }
 
                 // Update validation section
                 document.getElementById('validationAuthRequired').style.display = 'none';
@@ -1831,6 +1920,15 @@ Example: 'The customer name field is still not mapping correctly' or 'Focus on f
                 text.textContent = 'Not authenticated';
                 button.textContent = 'Login';
                 button.onclick = showLogin;
+
+                // Update settings modal auth status
+                if (settingsAuthStatus) {
+                    settingsAuthStatus.textContent = 'Not authenticated';
+                    settingsAuthStatus.style.color = '';
+                }
+                if (settingsAuthType) {
+                    settingsAuthType.textContent = '';
+                }
 
                 // Update validation section
                 document.getElementById('validationAuthRequired').style.display = 'block';

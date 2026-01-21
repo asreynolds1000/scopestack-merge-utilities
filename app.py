@@ -186,6 +186,81 @@ def logout():
     return jsonify({'success': True})
 
 
+# ==================== OAuth Authorization Code Flow Routes ====================
+
+@app.route('/oauth/authorize')
+def oauth_authorize():
+    """Redirect to ScopeStack for SSO login"""
+    # Generate PKCE pair and state
+    code_verifier, code_challenge = auth_manager.generate_pkce_pair()
+    state = auth_manager.generate_state()
+
+    # Build redirect URI - use environment variable or auto-detect from request
+    redirect_uri = os.environ.get('OAUTH_REDIRECT_URI')
+    if not redirect_uri:
+        redirect_uri = request.host_url.rstrip('/') + '/oauth/callback'
+
+    # Store in session for verification on callback
+    session['oauth_state'] = state
+    session['oauth_code_verifier'] = code_verifier
+    session['oauth_redirect_uri'] = redirect_uri
+
+    # Build and redirect to authorization URL
+    auth_url = auth_manager.get_authorization_url(redirect_uri, state, code_challenge)
+    from flask import redirect
+    return redirect(auth_url)
+
+
+@app.route('/oauth/callback')
+def oauth_callback():
+    """Handle callback from ScopeStack after SSO login"""
+    from flask import redirect
+
+    # Get parameters from callback
+    code = request.args.get('code')
+    state = request.args.get('state')
+    error = request.args.get('error')
+    error_description = request.args.get('error_description')
+
+    # Check for OAuth error response
+    if error:
+        return render_template('oauth_error.html',
+                               error=error,
+                               error_description=error_description or 'Authorization was denied or failed')
+
+    # Validate state (CSRF protection)
+    stored_state = session.get('oauth_state')
+    if not stored_state or state != stored_state:
+        return render_template('oauth_error.html',
+                               error='invalid_state',
+                               error_description='State mismatch. Please try logging in again.')
+
+    # Get stored PKCE verifier and redirect URI
+    code_verifier = session.get('oauth_code_verifier')
+    redirect_uri = session.get('oauth_redirect_uri')
+
+    if not code_verifier or not redirect_uri:
+        return render_template('oauth_error.html',
+                               error='session_error',
+                               error_description='Session expired. Please try logging in again.')
+
+    # Exchange code for tokens
+    result = auth_manager.exchange_code_for_tokens(code, redirect_uri, code_verifier)
+
+    # Clear OAuth session data
+    session.pop('oauth_state', None)
+    session.pop('oauth_code_verifier', None)
+    session.pop('oauth_redirect_uri', None)
+
+    if result.get('success'):
+        # Redirect to home with success indicator
+        return redirect('/?auth=success')
+    else:
+        return render_template('oauth_error.html',
+                               error='token_exchange_failed',
+                               error_description=result.get('error', 'Failed to exchange authorization code for tokens'))
+
+
 @app.route('/api/accounts', methods=['GET'])
 def get_accounts():
     """Get all saved accounts"""
