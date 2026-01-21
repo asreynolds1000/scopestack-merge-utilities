@@ -936,21 +936,27 @@
         const ProjectPicker = ({ value, onChange, onSelect }) => {
             const [isOpen, setIsOpen] = useState(false);
             const [searchTerm, setSearchTerm] = useState('');
-            const [projects, setProjects] = useState([]);
+            const [allProjects, setAllProjects] = useState([]);  // Store all loaded projects
+            const [filteredProjects, setFilteredProjects] = useState([]);  // Filtered display
             const [loading, setLoading] = useState(false);
-            const [searchTimeout, setSearchTimeout] = useState(null);
+            const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
             const dropdownRef = useRef(null);
             const inputRef = useRef(null);
 
             // Load recent projects on focus
             const loadRecentProjects = async () => {
-                if (projects.length > 0 && !searchTerm) return; // Already loaded
+                if (allProjects.length > 0) {
+                    // Already loaded, just filter
+                    filterProjects(searchTerm, allProjects);
+                    return;
+                }
                 setLoading(true);
                 try {
                     const response = await fetch('/api/projects/recent');
                     const data = await response.json();
                     if (data.success) {
-                        setProjects(data.projects);
+                        setAllProjects(data.projects);
+                        filterProjects(searchTerm, data.projects);
                     }
                 } catch (err) {
                     console.error('Error loading projects:', err);
@@ -959,24 +965,19 @@
                 }
             };
 
-            // Search projects
-            const searchProjects = async (query) => {
+            // Filter projects client-side (API search may not be supported)
+            const filterProjects = (query, projectList) => {
                 if (!query.trim()) {
-                    loadRecentProjects();
+                    setFilteredProjects(projectList);
                     return;
                 }
-                setLoading(true);
-                try {
-                    const response = await fetch(`/api/projects/search?q=${encodeURIComponent(query)}`);
-                    const data = await response.json();
-                    if (data.success) {
-                        setProjects(data.projects);
-                    }
-                } catch (err) {
-                    console.error('Error searching projects:', err);
-                } finally {
-                    setLoading(false);
-                }
+                const lowerQuery = query.toLowerCase();
+                const filtered = projectList.filter(p =>
+                    p.name.toLowerCase().includes(lowerQuery) ||
+                    p.client_name.toLowerCase().includes(lowerQuery) ||
+                    p.id.toString().includes(lowerQuery)
+                );
+                setFilteredProjects(filtered);
             };
 
             // Handle search input
@@ -984,12 +985,19 @@
                 const query = e.target.value;
                 setSearchTerm(query);
                 onChange(query); // Also update the project ID input
+                filterProjects(query, allProjects);
+            };
 
-                // Debounce search
-                if (searchTimeout) clearTimeout(searchTimeout);
-                setSearchTimeout(setTimeout(() => {
-                    searchProjects(query);
-                }, 300));
+            // Calculate dropdown position when opening
+            const updateDropdownPosition = () => {
+                if (inputRef.current) {
+                    const rect = inputRef.current.getBoundingClientRect();
+                    setDropdownPosition({
+                        top: rect.bottom + 4,
+                        left: rect.left,
+                        width: rect.width
+                    });
+                }
             };
 
             // Handle project selection
@@ -1003,7 +1011,8 @@
             // Close dropdown when clicking outside
             useEffect(() => {
                 const handleClickOutside = (e) => {
-                    if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                    if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
+                        inputRef.current && !inputRef.current.contains(e.target)) {
                         setIsOpen(false);
                     }
                 };
@@ -1018,14 +1027,27 @@
                 }
             }, [value]);
 
+            // Update position on scroll/resize when open
+            useEffect(() => {
+                if (isOpen) {
+                    updateDropdownPosition();
+                    window.addEventListener('scroll', updateDropdownPosition, true);
+                    window.addEventListener('resize', updateDropdownPosition);
+                    return () => {
+                        window.removeEventListener('scroll', updateDropdownPosition, true);
+                        window.removeEventListener('resize', updateDropdownPosition);
+                    };
+                }
+            }, [isOpen]);
+
             return (
-                <div className="project-picker" ref={dropdownRef} style={{ position: 'relative', width: '300px' }}>
+                <div className="project-picker" style={{ position: 'relative', width: '300px' }}>
                     <input
                         ref={inputRef}
                         type="text"
                         value={searchTerm}
                         onChange={handleSearch}
-                        onFocus={() => { setIsOpen(true); loadRecentProjects(); }}
+                        onFocus={() => { setIsOpen(true); updateDropdownPosition(); loadRecentProjects(); }}
                         placeholder="Search projects or enter ID..."
                         style={{
                             width: '100%',
@@ -1035,32 +1057,35 @@
                             fontSize: '13px'
                         }}
                     />
-                    {isOpen && (
-                        <div className="project-dropdown" style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            right: 0,
-                            maxHeight: '300px',
-                            overflowY: 'auto',
-                            background: 'white',
-                            border: '1px solid #e0e0e0',
-                            borderRadius: '6px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            zIndex: 1000,
-                            marginTop: '4px'
-                        }}>
+                    {isOpen && ReactDOM.createPortal(
+                        <div
+                            ref={dropdownRef}
+                            className="project-dropdown"
+                            style={{
+                                position: 'fixed',
+                                top: dropdownPosition.top,
+                                left: dropdownPosition.left,
+                                width: dropdownPosition.width,
+                                maxHeight: '300px',
+                                overflowY: 'auto',
+                                background: 'white',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                zIndex: 9999
+                            }}
+                        >
                             {loading && (
                                 <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
                                     Loading projects...
                                 </div>
                             )}
-                            {!loading && projects.length === 0 && (
+                            {!loading && filteredProjects.length === 0 && (
                                 <div style={{ padding: '12px', textAlign: 'center', color: '#666', fontSize: '12px' }}>
                                     {searchTerm ? 'No projects found' : 'Type to search or click to load recent'}
                                 </div>
                             )}
-                            {!loading && projects.map((project) => (
+                            {!loading && filteredProjects.map((project) => (
                                 <div
                                     key={project.id}
                                     onClick={() => handleSelect(project)}
@@ -1068,7 +1093,8 @@
                                         padding: '10px 12px',
                                         cursor: 'pointer',
                                         borderBottom: '1px solid #f0f0f0',
-                                        fontSize: '12px'
+                                        fontSize: '12px',
+                                        background: 'white'
                                     }}
                                     onMouseEnter={(e) => e.target.style.background = '#f5f5f5'}
                                     onMouseLeave={(e) => e.target.style.background = 'white'}
@@ -1082,7 +1108,8 @@
                                     </div>
                                 </div>
                             ))}
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </div>
             );
@@ -1223,6 +1250,10 @@
                         });
 
                         if (arrayCount > 0) {
+                            // Try to find a 'name' or similar field in template for meaningful display
+                            const nameField = ['name', 'title', 'label', 'description'].find(f => templateChildren[f]);
+                            const templateNameValue = nameField && templateChildren[nameField].sample_value;
+
                             // Create items for each array index using the template structure
                             childItems = Array.from({ length: arrayCount }, (_, index) => {
                                 const arrayItemPath = `${parentPath}[${index}]`;
@@ -1250,14 +1281,25 @@
                                     itemChildren[fullPath] = { ...childData, path: fullPath };
                                 });
 
+                                // Generate display name: use name field from template for [0], show index for others
+                                let displayName = `[${index}]`;
+                                if (index === 0 && templateNameValue) {
+                                    displayName = `${templateNameValue}`;
+                                } else if (templateNameValue) {
+                                    // For other indices, show index + template structure hint
+                                    displayName = `[${index}] (item)`;
+                                }
+
                                 return {
                                     path: arrayItemPath,
-                                    displayName: `[${index}]`,
+                                    displayName,
                                     data: {
                                         type: 'object',
                                         is_array: false,
                                         children: itemChildren,
-                                        sample_value: `{${Object.keys(templateChildren).length} fields}`
+                                        sample_value: index === 0 && templateNameValue
+                                            ? templateNameValue
+                                            : `{${Object.keys(templateChildren).length} fields}`
                                     }
                                 };
                             });
