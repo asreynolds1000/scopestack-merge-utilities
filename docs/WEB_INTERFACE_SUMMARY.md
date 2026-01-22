@@ -133,7 +133,7 @@ Beautiful single-page application with:
 ```
 User opens browser
     ↓
-Navigate to http://localhost:5000
+Navigate to http://localhost:5001
     ↓
 Drag and drop .docx file
     ↓
@@ -169,7 +169,7 @@ Upload to ScopeStack and test!
 ## 🎯 User Experience Flow
 
 ### Step 1: Upload (5 seconds)
-1. Open browser to `http://localhost:5000`
+1. Open browser to `http://localhost:5001`
 2. See beautiful landing page
 3. Drag file onto upload area
 4. See upload progress
@@ -251,7 +251,7 @@ pip3 install -r requirements.txt
 python3 app.py
 
 # Open browser
-open http://localhost:5000
+open http://localhost:5001
 
 # Start converting!
 ```
@@ -261,14 +261,14 @@ open http://localhost:5000
 ### Option 1: Local Use (Current)
 ```bash
 python3 app.py
-# Access at http://localhost:5000
+# Access at http://localhost:5001
 ```
 
 ### Option 2: Team Server
 ```bash
 # Run on a shared server
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
-# Team accesses at http://server-ip:5000
+gunicorn -w 4 -b 0.0.0.0:5001 app:app
+# Team accesses at http://server-ip:5001
 ```
 
 ### Option 3: Cloud Deployment

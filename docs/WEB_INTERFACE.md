@@ -13,7 +13,7 @@
    ```
 
 3. **Open your browser:**
-   Navigate to: `http://localhost:5000`
+   Navigate to: `http://localhost:5001`
 
 ## Using the Web Interface
 
@@ -170,7 +170,7 @@ For production deployment:
 2. **Use a production WSGI server:**
    ```bash
    pip3 install gunicorn
-   gunicorn -w 4 -b 0.0.0.0:5000 app:app
+   gunicorn -w 4 -b 0.0.0.0:5001 app:app
    ```
 
 3. **Add HTTPS** using nginx or Apache as a reverse proxy

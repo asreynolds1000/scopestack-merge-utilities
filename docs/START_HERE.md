@@ -16,7 +16,7 @@ pip3 install -r requirements.txt
 python3 app.py
 
 # 3. Open your browser
-# Navigate to: http://localhost:5000
+# Navigate to: http://localhost:5001
 
 # 4. Drag and drop your .docx file
 # 5. Click "Convert Template"
@@ -265,7 +265,7 @@ After your first conversion:
 1. **Try the Web Interface:**
    ```bash
    python3 app.py
-   # Then open http://localhost:5000
+   # Then open http://localhost:5001
    ```
 
 2. **Convert Your First Template:**

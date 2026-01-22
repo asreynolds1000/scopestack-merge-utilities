@@ -61,6 +61,11 @@ python3 auth_manager.py logout   # Clear tokens
 - **`template_validator.py`** - Validates converted templates against live project data
 - **`session_manager.py`** - Tracks conversion sessions in `~/.scopestack/sessions/`
 - **`data_structure_extractor.py`** - Extracts field structure from merge data JSON
+- **`smart_converter.py`** - AI-driven smart conversion (used by `/api/smart-convert`)
+- **`path_coherence.py`** - Path scoring for field mapping suggestions
+
+### CLI Utilities
+- **`diagnose_mergefields.py`** - Standalone diagnostic tool for inspecting Mail Merge fields in .docx files
 
 ## Key Patterns
 
@@ -228,3 +233,8 @@ Restructured app with new homepage and template inheritance:
 - Shared components extracted: auth_bar, login_modal, settings_modal
 - Base template (`base.html`) with common CSS, JS, and auth handling
 - 301 redirect from `/merge-data-viewer` to `/data-viewer` for backwards compatibility
+
+### Codebase Cleanup (2026-01-21)
+- Archived old planning docs to `docs/archive/` (MAIN_PLAN.md, COMPLETE_WORKFLOW.md, etc.)
+- Removed unused experimental files (improved_field_replacer.py, template_learning_workflow.py)
+- Fixed port references in docs (5000 → 5001)
