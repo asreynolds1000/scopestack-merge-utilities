@@ -158,6 +158,8 @@ All routes require ScopeStack SSO authentication except:
 
 Unauthenticated users are automatically redirected to `/login`, then back to their original destination after successful OAuth.
 
+**Session-based tokens**: Auth tokens are stored in Flask `session` (per-user browser cookies), not server-side files. Each user has their own isolated authentication state. This is handled by helper functions in `app.py`: `is_session_authenticated()`, `get_session_access_token()`, `get_session_account_info()`.
+
 ## Testing
 
 ```bash
@@ -259,3 +261,27 @@ Railway CLI is now linked to this project. Use `railway status` and `railway log
 
 ### Template Converter Hidden (2026-01-22)
 Removed Template Converter from homepage and nav bar. Route `/converter` still works via direct URL access.
+
+### Session-Based Auth Fix (2026-01-21)
+**Critical security fix**: OAuth tokens were stored in a shared server-side file (`~/.scopestack/tokens.json`), causing all users to share the same authentication. When User A logged in, User B visiting the site would be authenticated as User A.
+
+**Root cause**: `AuthManager` was designed for CLI usage (single user) but was used unchanged in the web app (multi-user).
+
+**Fix**:
+- Added `save_to_file=False` parameter to `exchange_code_for_tokens()` for web usage
+- Added session-based helper methods to `AuthManager`: `is_token_data_expired()`, `refresh_token_data()`, `get_valid_access_token()`, `get_account_info_from_tokens()`
+- Created helper functions in `app.py`: `get_session_tokens()`, `set_session_tokens()`, `clear_session_tokens()`, `is_session_authenticated()`, `get_session_access_token()`, `get_session_account_info()`
+- Replaced all `auth_manager.is_authenticated()` → `is_session_authenticated()`
+- Replaced all `auth_manager.get_access_token()` → `get_session_access_token()`
+- Tokens now stored in Flask `session` (per-browser signed cookie)
+
+**Lesson**: When converting CLI tools to web apps, audit all file-based storage for user data. Use `/threat-modeler` skill for security review before deploying multi-user apps.
+
+### AI Settings Now Per-User (2026-01-21)
+Extended the session-based pattern to AI settings:
+- AI API keys stored in `session['ai_api_keys']` (per-user)
+- AI settings (enabled/provider/iterations) stored in `session['ai_settings']` (per-user)
+- Added missing endpoints: `/api/ai/key-status`, `/api/ai/save-key`
+- Updated all `auth_manager.get_ai_api_key()` → `get_session_ai_api_key()`
+
+Each user now has their own AI configuration that doesn't affect other users.

@@ -274,7 +274,7 @@ class AuthManager:
         }
         return f"{self.base_url}/oauth/authorize?{urlencode(params)}"
 
-    def exchange_code_for_tokens(self, code: str, redirect_uri: str, code_verifier: str) -> dict:
+    def exchange_code_for_tokens(self, code: str, redirect_uri: str, code_verifier: str, save_to_file: bool = True) -> dict:
         """
         Exchange authorization code for tokens, then fetch /me for account context
 
@@ -282,9 +282,10 @@ class AuthManager:
             code: The authorization code received from callback
             redirect_uri: The same redirect_uri used in authorization request
             code_verifier: The PKCE code verifier
+            save_to_file: If True, save tokens to disk (for CLI). If False, only return them (for web sessions).
 
         Returns:
-            dict: {'success': True, 'account': {...}} or {'success': False, 'error': '...'}
+            dict: {'success': True, 'tokens': {...}, 'account': {...}} or {'success': False, 'error': '...'}
         """
         if not self.client_id or not self.client_secret:
             return {'success': False, 'error': 'Client credentials not configured'}
@@ -313,7 +314,7 @@ class AuthManager:
             # Get user info from /v1/me
             user_info = self.get_user_info(auth_data['access_token'])
 
-            self.tokens = {
+            tokens = {
                 'auth_type': 'authorization_code',
                 'email': user_info.get('email'),
                 'access_token': auth_data['access_token'],
@@ -325,9 +326,14 @@ class AuthManager:
                 'authenticated_at': datetime.now().isoformat()
             }
 
-            self.save_tokens()
+            # Only save to file for CLI usage, not web sessions
+            if save_to_file:
+                self.tokens = tokens
+                self.save_tokens()
+
             return {
                 'success': True,
+                'tokens': tokens,
                 'account': {
                     'email': user_info.get('email'),
                     'account_slug': user_info.get('account_slug'),
@@ -347,7 +353,7 @@ class AuthManager:
 
     def get_access_token(self):
         """
-        Get a valid access token, refreshing if necessary
+        Get a valid access token, refreshing if necessary (for CLI/file-based usage)
 
         Returns:
             str: Valid access token or None
@@ -363,6 +369,120 @@ class AuthManager:
                 return None
 
         return self.tokens.get('access_token')
+
+    # ==================== Session-based methods (for web app) ====================
+
+    def is_token_data_expired(self, token_data: dict) -> bool:
+        """
+        Check if token data is expired (stateless check for session-based auth)
+
+        Args:
+            token_data: Token dict with 'expires_at' key
+
+        Returns:
+            bool: True if expired or invalid
+        """
+        if not token_data or 'expires_at' not in token_data:
+            return True
+
+        try:
+            expires_at = datetime.fromisoformat(token_data['expires_at'])
+            # Consider expired if less than 5 minutes remaining
+            return datetime.now() >= (expires_at - timedelta(minutes=5))
+        except (ValueError, TypeError):
+            return True
+
+    def refresh_token_data(self, token_data: dict) -> dict:
+        """
+        Refresh tokens using refresh_token (stateless, for session-based auth)
+
+        Args:
+            token_data: Token dict with 'refresh_token' key
+
+        Returns:
+            dict: {'success': True, 'tokens': {...}} or {'success': False, 'error': '...'}
+        """
+        if not token_data or 'refresh_token' not in token_data:
+            return {'success': False, 'error': 'No refresh token available'}
+
+        if not self.client_id or not self.client_secret:
+            return {'success': False, 'error': 'Client credentials not configured'}
+
+        try:
+            response = requests.post(
+                f"{self.base_url}/oauth/token",
+                data={
+                    'grant_type': 'refresh_token',
+                    'client_id': self.client_id,
+                    'client_secret': self.client_secret,
+                    'refresh_token': token_data['refresh_token']
+                }
+            )
+            response.raise_for_status()
+
+            auth_data = response.json()
+
+            # Update token data
+            expires_in = auth_data.get('expires_in', 7200)
+            expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+            new_tokens = dict(token_data)
+            new_tokens['access_token'] = auth_data['access_token']
+            if 'refresh_token' in auth_data:
+                new_tokens['refresh_token'] = auth_data['refresh_token']
+            new_tokens['expires_in'] = expires_in
+            new_tokens['expires_at'] = expires_at.isoformat()
+            new_tokens['refreshed_at'] = datetime.now().isoformat()
+
+            return {'success': True, 'tokens': new_tokens}
+
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    error_msg = error_detail.get('error_description', error_detail.get('error', str(e)))
+                except:
+                    error_msg = f"HTTP {e.response.status_code}"
+            return {'success': False, 'error': error_msg}
+
+    def get_valid_access_token(self, token_data: dict) -> tuple:
+        """
+        Get valid access token from token data, refreshing if needed (for session-based auth)
+
+        Args:
+            token_data: Token dict from session
+
+        Returns:
+            tuple: (access_token, updated_token_data) or (None, None) if invalid
+        """
+        if not token_data:
+            return None, None
+
+        # Check if token is expired
+        if self.is_token_data_expired(token_data):
+            # Try to refresh
+            result = self.refresh_token_data(token_data)
+            if result.get('success'):
+                token_data = result['tokens']
+            else:
+                return None, None
+
+        return token_data.get('access_token'), token_data
+
+    def get_account_info_from_tokens(self, token_data: dict) -> dict:
+        """Get account information from token data (for session-based auth)"""
+        if not token_data:
+            return None
+
+        return {
+            'auth_type': token_data.get('auth_type', 'authorization_code'),
+            'email': token_data.get('email'),
+            'account_slug': token_data.get('account_slug'),
+            'account_id': token_data.get('account_id'),
+            'authenticated_at': token_data.get('authenticated_at'),
+            'expires_at': token_data.get('expires_at')
+        }
 
     def logout(self):
         """Logout and remove saved tokens"""

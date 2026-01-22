@@ -35,6 +35,100 @@ auth_manager = AuthManager()
 mapping_db = MappingDatabase()
 session_manager = SessionManager()
 
+
+# ==================== Session-based authentication helpers ====================
+# These store auth tokens in Flask session (per-user) instead of shared server file
+
+def get_session_tokens():
+    """Get auth tokens from Flask session"""
+    return session.get('auth_tokens')
+
+
+def set_session_tokens(tokens):
+    """Store auth tokens in Flask session"""
+    session['auth_tokens'] = tokens
+
+
+def clear_session_tokens():
+    """Clear auth tokens from Flask session"""
+    session.pop('auth_tokens', None)
+
+
+def is_session_authenticated():
+    """Check if current session has valid authentication"""
+    tokens = get_session_tokens()
+    if not tokens:
+        return False
+
+    # Check if expired, try to refresh if needed
+    if auth_manager.is_token_data_expired(tokens):
+        result = auth_manager.refresh_token_data(tokens)
+        if result.get('success'):
+            set_session_tokens(result['tokens'])
+            return True
+        else:
+            # Refresh failed, clear invalid tokens
+            clear_session_tokens()
+            return False
+
+    return True
+
+
+def get_session_access_token():
+    """Get valid access token from session, refreshing if needed"""
+    tokens = get_session_tokens()
+    if not tokens:
+        return None
+
+    access_token, updated_tokens = auth_manager.get_valid_access_token(tokens)
+
+    # Update session if tokens were refreshed
+    if updated_tokens and updated_tokens != tokens:
+        set_session_tokens(updated_tokens)
+
+    return access_token
+
+
+def get_session_account_info():
+    """Get account info from session tokens"""
+    tokens = get_session_tokens()
+    return auth_manager.get_account_info_from_tokens(tokens)
+
+
+# ==================== Session-based AI settings helpers ====================
+# These store AI settings per-user in Flask session instead of shared server files
+
+def get_session_ai_settings():
+    """Get AI settings from Flask session"""
+    return session.get('ai_settings', {
+        'enabled': False,
+        'provider': 'openai',
+        'max_iterations': 4
+    })
+
+
+def set_session_ai_settings(settings):
+    """Store AI settings in Flask session"""
+    session['ai_settings'] = settings
+
+
+def get_session_ai_api_key(provider):
+    """Get AI API key for provider from Flask session"""
+    ai_keys = session.get('ai_api_keys', {})
+    return ai_keys.get(provider)
+
+
+def set_session_ai_api_key(provider, api_key):
+    """Store AI API key for provider in Flask session"""
+    ai_keys = session.get('ai_api_keys', {})
+    ai_keys[provider] = api_key
+    session['ai_api_keys'] = ai_keys
+
+
+def has_session_ai_api_key(provider):
+    """Check if AI API key exists for provider in session"""
+    return get_session_ai_api_key(provider) is not None
+
 # API Debug Logger
 class APIDebugLogger:
     """Captures all API calls for debugging"""
@@ -104,8 +198,8 @@ def require_scopestack_auth():
     if request.path.startswith('/static'):
         return None
 
-    # Check ScopeStack authentication
-    if not auth_manager.is_authenticated():
+    # Check session-based authentication (per-user, not shared)
+    if not is_session_authenticated():
         # For API routes, return JSON error
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Not authenticated', 'redirect': '/login'}), 401
@@ -121,7 +215,7 @@ def require_scopestack_auth():
 def login_page():
     """Show login page for unauthenticated users"""
     # If already authenticated, redirect to home or next_url
-    if auth_manager.is_authenticated():
+    if is_session_authenticated():
         next_url = session.pop('next_url', '/')
         return redirect(next_url)
 
@@ -160,10 +254,10 @@ def merge_data_viewer_redirect():
 @app.route('/api/auth/status')
 def auth_status():
     """Get authentication status"""
-    if auth_manager.is_authenticated():
+    if is_session_authenticated():
         return jsonify({
             'authenticated': True,
-            'account': auth_manager.get_account_info()
+            'account': get_session_account_info()
         })
     else:
         return jsonify({'authenticated': False})
@@ -171,18 +265,18 @@ def auth_status():
 
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
-    """Logout and clear tokens"""
-    auth_manager.logout()
+    """Logout and clear tokens from session"""
+    clear_session_tokens()
     return jsonify({'success': True})
 
 
 @app.route('/api/auth/refresh-account', methods=['POST'])
 def refresh_account():
     """Refresh account info from /v1/me - useful when switching accounts in ScopeStack"""
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
-    access_token = auth_manager.get_access_token()
+    access_token = get_session_access_token()
     if not access_token:
         return jsonify({'error': 'Could not get access token'}), 401
 
@@ -191,15 +285,16 @@ def refresh_account():
     if not user_info.get('account_slug'):
         return jsonify({'error': 'Could not fetch account info from ScopeStack'}), 500
 
-    # Update stored tokens with new account info
-    auth_manager.tokens['email'] = user_info.get('email') or auth_manager.tokens.get('email')
-    auth_manager.tokens['account_slug'] = user_info.get('account_slug')
-    auth_manager.tokens['account_id'] = user_info.get('account_id')
-    auth_manager.save_tokens()
+    # Update session tokens with new account info
+    tokens = get_session_tokens()
+    tokens['email'] = user_info.get('email') or tokens.get('email')
+    tokens['account_slug'] = user_info.get('account_slug')
+    tokens['account_id'] = user_info.get('account_id')
+    set_session_tokens(tokens)
 
     return jsonify({
         'success': True,
-        'account': auth_manager.get_account_info()
+        'account': get_session_account_info()
     })
 
 
@@ -268,8 +363,8 @@ def oauth_callback():
                                error='session_error',
                                error_description='Session expired. Please try logging in again.')
 
-    # Exchange code for tokens
-    result = auth_manager.exchange_code_for_tokens(code, redirect_uri, code_verifier)
+    # Exchange code for tokens (don't save to file - we'll store in session)
+    result = auth_manager.exchange_code_for_tokens(code, redirect_uri, code_verifier, save_to_file=False)
 
     # Get return URL before clearing session data (prefer next_url from SSO middleware)
     return_url = session.pop('next_url', None) or session.pop('oauth_return_url', '/')
@@ -280,6 +375,8 @@ def oauth_callback():
     session.pop('oauth_redirect_uri', None)
 
     if result.get('success'):
+        # Store tokens in Flask session (per-user, not shared server file)
+        set_session_tokens(result['tokens'])
         # Redirect to where user was before login
         return redirect(return_url)
     else:
@@ -290,51 +387,46 @@ def oauth_callback():
 
 @app.route('/api/accounts', methods=['GET'])
 def get_accounts():
-    """Get all saved accounts"""
+    """Get current session's account (session-based auth)"""
     try:
-        accounts = auth_manager.get_all_accounts()
-        return jsonify({
-            'success': True,
-            'accounts': accounts
-        })
+        if is_session_authenticated():
+            account_info = get_session_account_info()
+            return jsonify({
+                'success': True,
+                'accounts': [{
+                    'email': account_info.get('email'),
+                    'account_slug': account_info.get('account_slug'),
+                    'account_id': account_info.get('account_id'),
+                    'is_active': True
+                }] if account_info else []
+            })
+        else:
+            return jsonify({'success': True, 'accounts': []})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/accounts/switch', methods=['POST'])
 def switch_account():
-    """Switch to a different saved account"""
-    try:
-        data = request.get_json()
-        email = data.get('email')
-
-        if not email:
-            return jsonify({'error': 'Email required'}), 400
-
-        result = auth_manager.switch_account(email)
-
-        if result.get('success'):
-            return jsonify(result)
-        else:
-            return jsonify(result), 400
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    """Account switching not supported with session-based auth - use logout/login instead"""
+    return jsonify({
+        'success': False,
+        'error': 'Account switching not supported. Please logout and login with a different account.'
+    }), 400
 
 
 @app.route('/api/accounts/<email>', methods=['DELETE'])
 def remove_account(email):
-    """Remove a saved account"""
-    try:
-        result = auth_manager.remove_account(email)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    """Account removal not supported with session-based auth - use logout instead"""
+    return jsonify({
+        'success': False,
+        'error': 'Use logout to sign out of your account.'
+    }), 400
 
 
 @app.route('/api/settings/ai', methods=['POST'])
 def save_ai_settings():
-    """Save AI provider settings"""
+    """Save AI provider settings (per-user, stored in session)"""
     try:
         data = request.get_json()
 
@@ -350,17 +442,17 @@ def save_ai_settings():
         if not (1 <= max_iterations <= 10):
             return jsonify({'error': 'Max iterations must be between 1 and 10'}), 400
 
-        # Save API key to secure storage if provided
+        # Save API key to session if provided (per-user)
         if api_key and api_key != '***saved***':
-            auth_manager.save_ai_api_key(provider, api_key)
+            set_session_ai_api_key(provider, api_key)
 
-        # Store settings to file (persists across sessions)
+        # Store settings in session (per-user)
         ai_settings = {
             'enabled': enabled,
             'provider': provider,
             'max_iterations': max_iterations
         }
-        auth_manager.save_ai_settings(ai_settings)
+        set_session_ai_settings(ai_settings)
 
         return jsonify({'success': True})
 
@@ -370,14 +462,14 @@ def save_ai_settings():
 
 @app.route('/api/settings/ai', methods=['GET'])
 def get_ai_settings():
-    """Get current AI settings"""
-    # Load settings from file (persists across sessions)
-    settings = auth_manager.load_ai_settings()
+    """Get current AI settings (per-user, from session)"""
+    # Load settings from session (per-user)
+    settings = get_session_ai_settings()
 
     provider = settings.get('provider', 'openai')
 
-    # Check if API key exists in secure storage
-    has_api_key = auth_manager.has_ai_api_key(provider)
+    # Check if API key exists in session
+    has_api_key = has_session_ai_api_key(provider)
 
     # Don't send the API key back to client for security
     return jsonify({
@@ -386,6 +478,35 @@ def get_ai_settings():
         'has_api_key': has_api_key,
         'max_iterations': settings.get('max_iterations', 4)
     })
+
+
+@app.route('/api/ai/key-status', methods=['GET'])
+def ai_key_status():
+    """Check if AI API key exists for provider (per-user, from session)"""
+    provider = request.args.get('provider', 'openai')
+    has_key = has_session_ai_api_key(provider)
+    return jsonify({'has_key': has_key, 'provider': provider})
+
+
+@app.route('/api/ai/save-key', methods=['POST'])
+def save_ai_key():
+    """Save AI API key for provider (per-user, to session)"""
+    try:
+        data = request.get_json()
+        provider = data.get('provider', 'openai')
+        api_key = data.get('api_key', '')
+
+        if not api_key:
+            return jsonify({'success': False, 'error': 'API key required'}), 400
+
+        if provider not in ['openai', 'anthropic']:
+            return jsonify({'success': False, 'error': 'Invalid provider'}), 400
+
+        set_session_ai_api_key(provider, api_key)
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/settings/ai/validate', methods=['POST'])
@@ -597,7 +718,7 @@ def validate_template():
     if 'uploaded_file' not in session:
         return jsonify({'error': 'No file uploaded'}), 400
 
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated. Please login first.'}), 401
 
     data = request.get_json()
@@ -624,7 +745,7 @@ def validate_template():
 
         # Use stored authentication token
         fetcher = MergeDataFetcher()
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
 
         if not token:
             return jsonify({'error': 'Authentication token expired. Please login again.'}), 401
@@ -697,7 +818,7 @@ def fetch_merge_data():
 @app.route('/api/test-project', methods=['POST'])
 def test_project():
     """Test if a project's merge data is accessible"""
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated. Please login first.'}), 401
 
     data = request.get_json()
@@ -708,7 +829,7 @@ def test_project():
 
     try:
         fetcher = MergeDataFetcher()
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
 
         if not token:
             return jsonify({'error': 'Authentication token expired. Please login again.'}), 401
@@ -764,7 +885,7 @@ def test_project():
 @app.route('/api/learn-mappings', methods=['POST'])
 def learn_mappings():
     """Learn field mappings by comparing v1 and v2 merge data values"""
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated. Please login first.'}), 401
 
     data = request.get_json()
@@ -779,7 +900,7 @@ def learn_mappings():
 
         # Create fetcher with authentication
         fetcher = MergeDataFetcher()
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
 
         if not token:
             return jsonify({'error': 'Authentication token expired. Please login again.'}), 401
@@ -846,7 +967,7 @@ def upload_for_learning():
     3. Fetch v1 and v2 merge data from API
     4. Match: v1 field -> value (in output) -> v2 path
     """
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated. Please login first.'}), 401
 
     try:
@@ -880,7 +1001,7 @@ def upload_for_learning():
 
         # Authenticate and create fetcher
         fetcher = MergeDataFetcher()
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         fetcher.authenticate(token=token)
 
         # Capture debug output
@@ -1020,11 +1141,11 @@ def get_database_stats():
 @app.route('/api/templates/list', methods=['GET'])
 def list_templates():
     """List all document templates from ScopeStack"""
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
 
@@ -1051,11 +1172,11 @@ def download_template_for_conversion(template_id):
     Download a template to local storage for conversion.
     Returns JSON with path instead of sending file directly.
     """
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
 
@@ -1087,11 +1208,11 @@ def download_template_for_conversion(template_id):
 @app.route('/api/templates/<template_id>/download', methods=['POST'])
 def download_template_api(template_id):
     """Download a template from ScopeStack (sends file to user)"""
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
 
@@ -1150,7 +1271,7 @@ def get_conversion_report(session_id):
         return jsonify({'error': 'Incomplete session data'}), 400
 
     try:
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         fetcher = MergeDataFetcher()
         fetcher.authenticate(token=token)
 
@@ -1230,7 +1351,7 @@ def create_or_update_template():
     2. If exists: PATCH to update, else POST to create
     3. POST to /upload endpoint with file
     """
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
@@ -1250,8 +1371,8 @@ def create_or_update_template():
         template_file.save(temp_path)
 
         # Get auth info
-        token = auth_manager.get_access_token()
-        account_info = auth_manager.get_account_info()
+        token = get_session_access_token()
+        account_info = get_session_account_info()
         account_slug = account_info.get('account_slug')
         account_id = account_info.get('account_id')
 
@@ -1493,7 +1614,7 @@ def check_template_name():
     Check if a template name is available (not already in use)
     Returns suggested name if collision exists
     """
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
@@ -1503,7 +1624,7 @@ def check_template_name():
         if not v1_template_name:
             return jsonify({'error': 'v1_template_name is required'}), 400
 
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
 
@@ -1542,11 +1663,11 @@ def list_v2_templates_with_health():
     List V2 templates with health status
     Returns templates filtered to V2 format with health check info
     """
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
 
@@ -1594,7 +1715,7 @@ def convert_and_upload_workflow():
     3. Convert to v2 format
     4. Upload as new v2 template
     """
-    if not auth_manager.is_authenticated():
+    if not is_session_authenticated():
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
@@ -1608,7 +1729,7 @@ def convert_and_upload_workflow():
                 'error': 'v1_template_id, project_id, and new_template_name are required'
             }), 400
 
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
 
         # Import required modules
         from learn_mappings import MappingLearner
@@ -1734,8 +1855,8 @@ def analyze_for_review():
         # Learn mappings if project ID provided
         suggested_mappings = []
 
-        if project_id and auth_manager.is_authenticated():
-            token = auth_manager.get_access_token()
+        if project_id and is_session_authenticated():
+            token = get_session_access_token()
             fetcher = MergeDataFetcher()
             fetcher.authenticate(token=token)
 
@@ -1844,9 +1965,9 @@ def analyze_for_review():
         # Get merge data if project ID was provided
         v1_merge_data = None
         v2_merge_data = None
-        if project_id and auth_manager.is_authenticated():
+        if project_id and is_session_authenticated():
             try:
-                token = auth_manager.get_access_token()
+                token = get_session_access_token()
                 fetcher = MergeDataFetcher()
                 fetcher.authenticate(token=token)
                 v1_merge_data = fetcher.fetch_v1_merge_data(project_id)
@@ -1903,7 +2024,7 @@ def learn_and_improve():
         print(f"   Template: {template_path}")
         print(f"   Project: {project_id}")
 
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         fetcher = MergeDataFetcher()
         fetcher.authenticate(token=token)
 
@@ -2039,7 +2160,7 @@ def learn_and_improve():
                 })
 
                 # Initialize AI converter
-                api_key = auth_manager.get_ai_api_key('openai')
+                api_key = get_session_ai_api_key('openai')
                 if not api_key:
                     raise Exception('No OpenAI API key configured')
 
@@ -2211,7 +2332,7 @@ def learn_and_improve():
                         try:
                             from merge_data_fetcher import MergeDataFetcher
                             fetcher = MergeDataFetcher()
-                            token = auth_manager.get_access_token()
+                            token = get_session_access_token()
                             fetcher.authenticate(token=token)
 
                             v1_data = fetcher.fetch_merge_data(project_id, v1_template_id_local)
@@ -2439,12 +2560,12 @@ def generate_document():
         if not template_id or not project_id:
             return jsonify({'error': 'Template ID and Project ID required'}), 400
 
-        if not auth_manager.is_authenticated():
+        if not is_session_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
 
         # Get account slug
-        token = auth_manager.get_access_token()
-        account_info = auth_manager.get_account_info()
+        token = get_session_access_token()
+        account_info = get_session_account_info()
         account_slug = account_info.get('account_slug') if account_info else None
 
         # Create document payload
@@ -2720,7 +2841,7 @@ def ai_improve_conversion():
             return jsonify({'error': 'Missing required parameters'}), 400
 
         # Check if AI is enabled and we have an API key
-        api_key = auth_manager.get_ai_api_key(provider)
+        api_key = get_session_ai_api_key(provider)
         if not api_key:
             return jsonify({'error': f'No {provider} API key configured'}), 400
 
@@ -2732,7 +2853,7 @@ def ai_improve_conversion():
 
         # Get template paths (download if needed)
         from template_manager import TemplateManager
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
 
@@ -2821,8 +2942,8 @@ def _generate_document_direct(template_id: str, project_id: str) -> Dict:
     Returns:
         dict with download_url or error
     """
-    token = auth_manager.get_access_token()
-    account_info = auth_manager.get_account_info()
+    token = get_session_access_token()
+    account_info = get_session_account_info()
     account_slug = account_info.get('account_slug') if account_info else None
 
     if not account_slug:
@@ -2942,7 +3063,7 @@ def ai_smart_convert():
             return jsonify({'error': 'Missing required parameters (v1_template_id, project_id)'}), 400
 
         # Check AI key
-        api_key = auth_manager.get_ai_api_key(provider)
+        api_key = get_session_ai_api_key(provider)
         if not api_key:
             return jsonify({'error': f'No {provider} API key configured'}), 400
 
@@ -2953,7 +3074,7 @@ def ai_smart_convert():
         import uuid
 
         ai_converter = AIConverter(provider=provider, api_key=api_key)
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
 
@@ -3112,7 +3233,7 @@ def ai_recursive_improve():
             return jsonify({'error': 'Missing required parameters'}), 400
 
         # Check AI key
-        api_key = auth_manager.get_ai_api_key(provider)
+        api_key = get_session_ai_api_key(provider)
         if not api_key:
             return jsonify({'error': f'No {provider} API key configured'}), 400
 
@@ -3123,7 +3244,7 @@ def ai_recursive_improve():
         from mapping_database import MappingDatabase
 
         ai_converter = AIConverter(provider=provider, api_key=api_key)
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
         mapping_db = MappingDatabase()
@@ -3619,7 +3740,7 @@ def ai_continue_improvement():
         provider = ai_settings.get('provider', 'openai')
 
         # Check AI key
-        api_key = auth_manager.get_ai_api_key(provider)
+        api_key = get_session_ai_api_key(provider)
         if not api_key:
             return jsonify({'error': f'No {provider} API key configured'}), 400
 
@@ -3630,7 +3751,7 @@ def ai_continue_improvement():
         from mapping_database import MappingDatabase
 
         ai_converter = AIConverter(provider=provider, api_key=api_key)
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager = TemplateManager()
         manager.authenticate(token=token)
         mapping_db = MappingDatabase()
@@ -4093,7 +4214,7 @@ def upload_with_versioning():
         tracker = TemplateVersionTracker()
         manager = TemplateManager()
 
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         manager.authenticate(token=token)
 
         # Determine final template name
@@ -4196,11 +4317,11 @@ def get_merge_data_structure(project_id):
         full_data = request.args.get('full_data', 'false').lower() == 'true'
 
         # Check authentication
-        if not auth_manager.is_authenticated():
+        if not is_session_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
 
         # Fetch merge data from API
-        token = auth_manager.get_access_token()
+        token = get_session_access_token()
         fetcher = MergeDataFetcher()
         fetcher.authenticate(token=token)
 
@@ -4328,7 +4449,7 @@ def save_manual_mapping():
     """
     try:
         # Check authentication
-        if not auth_manager.is_authenticated():
+        if not is_session_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
 
         # Get request data
@@ -4413,7 +4534,7 @@ def save_array_mapping():
     """
     try:
         # Check authentication
-        if not auth_manager.is_authenticated():
+        if not is_session_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
 
         # Get request data
@@ -4480,7 +4601,7 @@ def delete_mapping(v1_field):
     """
     try:
         # Check authentication
-        if not auth_manager.is_authenticated():
+        if not is_session_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
 
         # Delete the mapping
@@ -4541,11 +4662,11 @@ def get_recent_projects():
     """
     try:
         # Check authentication
-        if not auth_manager.is_authenticated():
+        if not is_session_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
 
-        token = auth_manager.get_access_token()
-        account_info = auth_manager.get_account_info()
+        token = get_session_access_token()
+        account_info = get_session_account_info()
         account_slug = account_info.get('account_slug')
 
         if not account_slug:
@@ -4653,15 +4774,15 @@ def search_projects():
     """
     try:
         # Check authentication
-        if not auth_manager.is_authenticated():
+        if not is_session_authenticated():
             return jsonify({'error': 'Not authenticated'}), 401
 
         query = request.args.get('q', '').strip()
         if not query:
             return jsonify({'success': True, 'projects': []})
 
-        token = auth_manager.get_access_token()
-        account_info = auth_manager.get_account_info()
+        token = get_session_access_token()
+        account_info = get_session_account_info()
         account_slug = account_info.get('account_slug')
 
         if not account_slug:
