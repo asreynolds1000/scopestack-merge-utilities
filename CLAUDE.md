@@ -253,3 +253,9 @@ Restructured app with new homepage and template inheritance:
 - Unauthenticated users see `/login` page, then redirect to destination after OAuth
 - Removed email/password login option - SSO is the only auth method
 - Replaced "Full Data" checkbox with dropdown select for better UX (page reload is more expected)
+
+### Railway CLI Linked (2026-01-22)
+Railway CLI is now linked to this project. Use `railway status` and `railway logs -n 20` to check deployments.
+
+### Template Converter Hidden (2026-01-22)
+Removed Template Converter from homepage and nav bar. Route `/converter` still works via direct URL access.
