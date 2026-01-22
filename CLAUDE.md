@@ -145,9 +145,17 @@ railway open
 ```bash
 SCOPESTACK_CLIENT_ID=your_client_id
 SCOPESTACK_CLIENT_SECRET=your_client_secret
-SECRET_KEY=random_secret_for_flask_sessions
+SECRET_KEY=random_secret_for_flask_sessions  # REQUIRED in production, enforced by app
 OAUTH_REDIRECT_URI=https://your-domain.com/oauth/callback  # Required for production
 ```
+
+### Session Security
+The app enforces secure session cookie settings in production:
+- `SESSION_COOKIE_SECURE=True` - Cookies only sent over HTTPS
+- `SESSION_COOKIE_HTTPONLY=True` - No JavaScript access to cookies
+- `SESSION_COOKIE_SAMESITE='Lax'` - CSRF protection
+
+`SECRET_KEY` is **required** in production (detected via `RAILWAY_ENVIRONMENT`). Local development uses a fallback with a warning.
 
 ### Authentication
 All routes require ScopeStack SSO authentication except:
@@ -159,6 +167,21 @@ All routes require ScopeStack SSO authentication except:
 Unauthenticated users are automatically redirected to `/login`, then back to their original destination after successful OAuth.
 
 **Session-based tokens**: Auth tokens are stored in Flask `session` (per-user browser cookies), not server-side files. Each user has their own isolated authentication state. This is handled by helper functions in `app.py`: `is_session_authenticated()`, `get_session_access_token()`, `get_session_account_info()`.
+
+### Security Review
+
+Before making changes to authentication, session management, or user data storage, run these security skills:
+
+```bash
+/security-checklist  # Web app session/state audit
+/sharp-edges         # Find dangerous patterns in auth code
+/differential-review # Security review before committing
+```
+
+**Key files to audit for security changes:**
+- `app.py` - Session helpers (lines 34-95), OAuth routes
+- `auth_manager.py` - Token handling, PKCE flow
+- Any route using `get_session_access_token()` or `is_session_authenticated()`
 
 ## Testing
 

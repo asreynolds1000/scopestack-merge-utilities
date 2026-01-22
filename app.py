@@ -24,7 +24,26 @@ from session_manager import SessionManager
 from template_validator import TemplateValidator
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Security: SECRET_KEY must be set in production
+# Only allow fallback for local development (when running directly)
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('PRODUCTION'):
+        raise ValueError("SECRET_KEY environment variable must be set in production")
+    # Local development fallback
+    _secret_key = 'dev-secret-key-for-local-development-only'
+    print("⚠️  WARNING: Using development SECRET_KEY. Set SECRET_KEY env var for production.")
+
+app.secret_key = _secret_key
+
+# Session cookie security settings
+app.config.update(
+    SESSION_COOKIE_SECURE=bool(os.environ.get('RAILWAY_ENVIRONMENT')),  # HTTPS only in production
+    SESSION_COOKIE_HTTPONLY=True,   # No JavaScript access to session cookie
+    SESSION_COOKIE_SAMESITE='Lax',  # CSRF protection
+)
+
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
