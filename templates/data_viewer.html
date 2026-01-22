@@ -2970,170 +2970,7 @@
             input.value = '';
         }
 
-        // ==================== Account Management Functions ====================
-
-        // Load accounts and populate UI
-        async function loadAccounts() {
-            try {
-                const response = await fetch('/api/accounts');
-                const data = await response.json();
-
-                if (data.success) {
-                    const accounts = data.accounts || [];
-                    const select = document.getElementById('accountSelect');
-                    const logoutBtn = document.getElementById('logoutBtn');
-                    const refreshAccountBtn = document.getElementById('refreshAccountBtn');
-
-                    // Clear and populate select
-                    select.innerHTML = '<option value="">No account selected</option>';
-
-                    accounts.forEach(acc => {
-                        const option = document.createElement('option');
-                        option.value = acc.email;
-                        option.textContent = `${acc.email} (${acc.account_slug || 'unknown'})`;
-                        if (acc.is_active) {
-                            option.selected = true;
-                        }
-                        select.appendChild(option);
-                    });
-
-                    // Show logout and refresh buttons if authenticated
-                    const hasActiveAccount = accounts.some(a => a.is_active);
-                    logoutBtn.style.display = hasActiveAccount ? 'block' : 'none';
-                    refreshAccountBtn.style.display = hasActiveAccount ? 'block' : 'none';
-
-                    // Update accounts list with remove buttons
-                    updateAccountsList(accounts);
-                }
-            } catch (err) {
-                console.error('Error loading accounts:', err);
-            }
-        }
-
-        // Update accounts list with remove buttons
-        function updateAccountsList(accounts) {
-            const listEl = document.getElementById('accountsList');
-
-            if (accounts.length === 0) {
-                listEl.style.display = 'none';
-                return;
-            }
-
-            listEl.style.display = 'block';
-            listEl.innerHTML = '';
-
-            accounts.forEach(acc => {
-                const item = document.createElement('div');
-                item.style.cssText = 'padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee;';
-                item.innerHTML = `
-                    <div>
-                        <div style="font-size: 12px; font-weight: 600;">${acc.email}</div>
-                        <div style="font-size: 10px; color: #666;">${acc.account_slug || 'unknown'}</div>
-                    </div>
-                    <button onclick="removeAccount('${acc.email}')" style="font-size: 10px; padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Remove</button>
-                `;
-                listEl.appendChild(item);
-            });
-        }
-
-        // Switch to a different account
-        async function switchAccount(email) {
-            if (!email) return;
-
-            try {
-                const response = await fetch('/api/accounts/switch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    isAuthenticated = true;
-                    updateAuthUI({
-                        authenticated: true,
-                        account: data.account
-                    });
-                    await loadAccounts(); // Refresh the list
-                } else {
-                    alert('Failed to switch account: ' + (data.error || 'Unknown error'));
-                }
-            } catch (err) {
-                alert('Error switching account: ' + err.message);
-            }
-        }
-
-        // Show add account form
-        function showAddAccount() {
-            document.getElementById('addAccountForm').style.display = 'block';
-            document.getElementById('newAccountEmail').focus();
-        }
-
-        // Hide add account form
-        function hideAddAccount() {
-            document.getElementById('addAccountForm').style.display = 'none';
-            document.getElementById('newAccountEmail').value = '';
-            document.getElementById('newAccountPassword').value = '';
-        }
-
-        // Add a new account
-        async function addNewAccount() {
-            const email = document.getElementById('newAccountEmail').value.trim();
-            const password = document.getElementById('newAccountPassword').value;
-
-            if (!email || !password) {
-                alert('Please enter email and password');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/accounts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    isAuthenticated = true;
-                    updateAuthUI({
-                        authenticated: true,
-                        account: data.account
-                    });
-                    hideAddAccount();
-                    await loadAccounts();
-                } else {
-                    alert('Failed to add account: ' + (data.error || 'Authentication failed'));
-                }
-            } catch (err) {
-                alert('Error adding account: ' + err.message);
-            }
-        }
-
-        // Remove an account
-        async function removeAccount(email) {
-            if (!confirm(`Remove account ${email}?`)) return;
-
-            try {
-                const response = await fetch(`/api/accounts/${encodeURIComponent(email)}`, {
-                    method: 'DELETE'
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    await loadAccounts();
-                    // Re-check auth status
-                    checkAuthStatus();
-                } else {
-                    alert('Failed to remove account: ' + (data.error || 'Unknown error'));
-                }
-            } catch (err) {
-                alert('Error removing account: ' + err.message);
-            }
-        }
+        // ==================== Account Functions ====================
 
         // Logout current account
         async function performLogout() {
@@ -3141,7 +2978,6 @@
                 await fetch('/api/auth/logout', { method: 'POST' });
                 isAuthenticated = false;
                 updateAuthUI({ authenticated: false });
-                await loadAccounts();
             } catch (err) {
                 console.error('Logout error:', err);
             }
@@ -3164,13 +3000,10 @@
             }
         }
 
-        // ==================== End Account Management ====================
+        // ==================== End Account Functions ====================
 
         // Show settings modal
         async function showSettings() {
-            // Load accounts and update UI
-            await loadAccounts();
-
             // Load current AI settings into form
             document.getElementById('enableAI').checked = aiSettings.enabled;
             document.getElementById('aiProvider').value = aiSettings.provider;
