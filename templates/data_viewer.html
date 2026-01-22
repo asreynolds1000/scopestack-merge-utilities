@@ -2272,12 +2272,12 @@
                             </button>
                         </div>
 
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '15px', fontSize: '12px', color: '#666', cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={fullDataMode}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '15px' }}>
+                            <label style={{ fontSize: '12px', color: '#666' }}>View Mode:</label>
+                            <select
+                                value={fullDataMode ? 'full' : 'template'}
                                 onChange={(e) => {
-                                    const newMode = e.target.checked;
+                                    const newMode = e.target.value === 'full';
                                     setFullDataMode(newMode);
                                     // Clear loaded data so it reloads with new mode
                                     setV1Loaded(false);
@@ -2289,12 +2289,20 @@
                                         setTimeout(() => loadMergeData(projectId, null, newMode), 0);
                                     }
                                 }}
-                                style={{ cursor: 'pointer' }}
-                            />
-                            <span title="When enabled, extracts all array items with actual sample values (slower). When disabled, uses first item as template (faster).">
-                                Full Data {fullDataMode ? '(all items)' : '(template)'}
-                            </span>
-                        </label>
+                                style={{
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ddd',
+                                    background: 'white',
+                                    cursor: 'pointer'
+                                }}
+                                title="Template Fields: Shows structure with first array item only (faster). Full Data: Shows all array items with actual values (slower)."
+                            >
+                                <option value="template">Template Fields</option>
+                                <option value="full">Full Data (All Array Items)</option>
+                            </select>
+                        </div>
 
                         {(v1Selected || v2Selected) && (
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>

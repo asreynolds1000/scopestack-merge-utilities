@@ -30,31 +30,6 @@ app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
 ALLOWED_EXTENSIONS = {'docx'}
 
-# Basic Authentication
-def check_auth(username, password):
-    """Check if username/password combination is valid"""
-    app_password = os.environ.get('APP_PASSWORD')
-    if not app_password:
-        # No password set = no auth required (local development)
-        return True
-    return username == 'admin' and password == app_password
-
-def authenticate():
-    """Send a 401 response that enables basic auth"""
-    return Response(
-        'Login required. Please authenticate.', 401,
-        {'WWW-Authenticate': 'Basic realm="ScopeStack Template Converter"'}
-    )
-
-@app.before_request
-def require_auth():
-    """Require authentication for all requests if APP_PASSWORD is set"""
-    if not os.environ.get('APP_PASSWORD'):
-        return  # No auth required in development
-    auth = request.authorization
-    if not auth or not check_auth(auth.username, auth.password):
-        return authenticate()
-
 # Global instances
 auth_manager = AuthManager()
 mapping_db = MappingDatabase()
@@ -115,21 +90,48 @@ class APIDebugLogger:
 
 api_logger = APIDebugLogger(max_logs=100)
 
+# Routes that don't require ScopeStack authentication
+PUBLIC_ROUTES = {'/login', '/oauth/authorize', '/oauth/callback', '/api/auth/status'}
+
+@app.before_request
+def require_scopestack_auth():
+    """Require ScopeStack SSO authentication for all requests except public routes"""
+    # Allow public routes
+    if request.path in PUBLIC_ROUTES or any(request.path.startswith(r + '/') for r in PUBLIC_ROUTES):
+        return None
+
+    # Allow static files
+    if request.path.startswith('/static'):
+        return None
+
+    # Check ScopeStack authentication
+    if not auth_manager.is_authenticated():
+        # For API routes, return JSON error
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Not authenticated', 'redirect': '/login'}), 401
+
+        # For page routes, redirect to login
+        session['next_url'] = request.url
+        return redirect('/login')
+
+    return None
+
+
+@app.route('/login')
+def login_page():
+    """Show login page for unauthenticated users"""
+    # If already authenticated, redirect to home or next_url
+    if auth_manager.is_authenticated():
+        next_url = session.pop('next_url', '/')
+        return redirect(next_url)
+
+    return render_template('login.html')
+
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
-@app.route('/debug-env')
-def debug_env():
-    """Debug endpoint to check environment variables"""
-    app_pass = os.environ.get('APP_PASSWORD')
-    return jsonify({
-        'APP_PASSWORD_SET': app_pass is not None and len(app_pass) > 0,
-        'APP_PASSWORD_LENGTH': len(app_pass) if app_pass else 0,
-        'APP_PASSWORD_FIRST_CHAR': app_pass[0] if app_pass else None
-    })
 
 @app.route('/')
 def home():
@@ -165,25 +167,6 @@ def auth_status():
         })
     else:
         return jsonify({'authenticated': False})
-
-
-@app.route('/api/auth/login', methods=['POST'])
-def login():
-    """Login with email/password"""
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-
-    if not email or not password:
-        return jsonify({'error': 'Email and password required'}), 400
-
-    if auth_manager.login(email, password):
-        return jsonify({
-            'success': True,
-            'account': auth_manager.get_account_info()
-        })
-    else:
-        return jsonify({'error': 'Authentication failed'}), 401
 
 
 @app.route('/api/auth/logout', methods=['POST'])
@@ -288,8 +271,8 @@ def oauth_callback():
     # Exchange code for tokens
     result = auth_manager.exchange_code_for_tokens(code, redirect_uri, code_verifier)
 
-    # Get return URL before clearing session data
-    return_url = session.pop('oauth_return_url', '/')
+    # Get return URL before clearing session data (prefer next_url from SSO middleware)
+    return_url = session.pop('next_url', None) or session.pop('oauth_return_url', '/')
 
     # Clear OAuth session data
     session.pop('oauth_state', None)
@@ -314,28 +297,6 @@ def get_accounts():
             'success': True,
             'accounts': accounts
         })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/accounts', methods=['POST'])
-def add_account():
-    """Add a new ScopeStack account"""
-    try:
-        data = request.get_json()
-        email = data.get('email')
-        password = data.get('password')
-
-        if not email or not password:
-            return jsonify({'error': 'Email and password required'}), 400
-
-        result = auth_manager.add_account(email, password)
-
-        if result.get('success'):
-            return jsonify(result)
-        else:
-            return jsonify(result), 401
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

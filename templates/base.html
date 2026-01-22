@@ -397,61 +397,9 @@
 
         function closeLogin() {
             document.getElementById('loginModal').classList.remove('show');
-            // Clear form
-            const emailInput = document.getElementById('loginEmail');
-            const passwordInput = document.getElementById('loginPassword');
-            if (emailInput) emailInput.value = '';
-            if (passwordInput) passwordInput.value = '';
             // Hide alert
             const loginAlert = document.getElementById('loginAlert');
             if (loginAlert) loginAlert.style.display = 'none';
-        }
-
-        async function performLogin() {
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            const loginAlert = document.getElementById('loginAlert');
-
-            if (!email || !password) {
-                if (loginAlert) {
-                    loginAlert.textContent = 'Please enter both email and password';
-                    loginAlert.className = 'alert alert-error';
-                    loginAlert.style.display = 'block';
-                }
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    closeLogin();
-                    isAuthenticated = true;
-                    accountInfo = data.account;
-                    updateAuthUI();
-                    // Trigger page-specific callback if defined
-                    if (typeof onLoginSuccess === 'function') {
-                        onLoginSuccess();
-                    }
-                } else {
-                    if (loginAlert) {
-                        loginAlert.textContent = data.error || 'Login failed';
-                        loginAlert.className = 'alert alert-error';
-                        loginAlert.style.display = 'block';
-                    }
-                }
-            } catch (error) {
-                if (loginAlert) {
-                    loginAlert.textContent = 'Connection error. Please try again.';
-                    loginAlert.className = 'alert alert-error';
-                    loginAlert.style.display = 'block';
-                }
-            }
         }
 
         // Settings modal functions

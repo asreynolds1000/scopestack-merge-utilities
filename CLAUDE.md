@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **ScopeStack Merge Data and Document Utility**: Tools for working with ScopeStack merge data and document templates. Provides a Flask web interface with multiple tools and a CLI.
 
+| | |
+|---|---|
+| **GitHub** | `asreynolds1000/scopestack-merge-utilities` (private) |
+| **Deploy** | Railway (auto-deploys on push to main) |
+
 ## URL Structure
 
 | Route | Page | Description |
@@ -14,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `/converter` | Template Converter | Convert v1 templates to v2, AI improvements, learn mappings |
 | `/data-viewer` | Merge Data Viewer | Browse v1/v2 merge data with Miller Columns UI |
 | `/merge-data-viewer` | Redirect (301) | Backwards compatibility redirect to `/data-viewer` |
+| `/login` | Login Page | ScopeStack SSO login (shown when unauthenticated) |
 
 ## Commands
 
@@ -140,15 +146,17 @@ railway open
 SCOPESTACK_CLIENT_ID=your_client_id
 SCOPESTACK_CLIENT_SECRET=your_client_secret
 SECRET_KEY=random_secret_for_flask_sessions
-APP_PASSWORD=password_for_basic_auth  # Username is "admin"
+OAUTH_REDIRECT_URI=https://your-domain.com/oauth/callback  # Required for production
 ```
 
-### Basic Auth
-When `APP_PASSWORD` is set, all routes require HTTP Basic Auth:
-- Username: `admin`
-- Password: value of `APP_PASSWORD`
+### Authentication
+All routes require ScopeStack SSO authentication except:
+- `/login` - Login page shown to unauthenticated users
+- `/oauth/authorize` - Initiates OAuth flow
+- `/oauth/callback` - OAuth callback handler
+- `/api/auth/status` - Auth status check for frontend
 
-If `APP_PASSWORD` is not set, no authentication is required (local development mode).
+Unauthenticated users are automatically redirected to `/login`, then back to their original destination after successful OAuth.
 
 ## Testing
 
@@ -173,9 +181,10 @@ Uses Jinja2 template inheritance with shared components:
 ```
 templates/
 ├── base.html                    # Base template with common CSS/JS, auth
+├── login.html                   # Standalone login page (SSO only)
 ├── components/
 │   ├── auth_bar.html           # Nav links, auth status, settings button
-│   ├── login_modal.html        # SSO + email/password login
+│   ├── login_modal.html        # SSO login modal
 │   └── settings_modal.html     # Auth + AI config + Debug console
 ├── home.html                   # Homepage with tool cards
 ├── converter.html              # Template Converter (extends base)
@@ -238,3 +247,9 @@ Restructured app with new homepage and template inheritance:
 - Archived old planning docs to `docs/archive/` (MAIN_PLAN.md, COMPLETE_WORKFLOW.md, etc.)
 - Removed unused experimental files (improved_field_replacer.py, template_learning_workflow.py)
 - Fixed port references in docs (5000 → 5001)
+
+### Auth Simplification (2026-01-22)
+- Removed dual auth (Basic Auth + OAuth) in favor of ScopeStack SSO only
+- Unauthenticated users see `/login` page, then redirect to destination after OAuth
+- Removed email/password login option - SSO is the only auth method
+- Replaced "Full Data" checkbox with dropdown select for better UX (page reload is more expected)
