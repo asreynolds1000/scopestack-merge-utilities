@@ -207,6 +207,9 @@ api_logger = APIDebugLogger(max_logs=100)
 # Routes that don't require ScopeStack authentication
 PUBLIC_ROUTES = {'/login', '/oauth/authorize', '/oauth/callback', '/api/auth/status'}
 
+# Paths that shouldn't be stored as next_url (browser auto-requests these)
+SKIP_NEXT_URL_PATHS = {'/favicon.ico', '/robots.txt', '/apple-touch-icon.png'}
+
 @app.before_request
 def require_scopestack_auth():
     """Require ScopeStack SSO authentication for all requests except public routes"""
@@ -224,8 +227,9 @@ def require_scopestack_auth():
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Not authenticated', 'redirect': '/login'}), 401
 
-        # For page routes, redirect to login
-        session['next_url'] = request.url
+        # For page routes, redirect to login (but don't store browser auto-requests as next_url)
+        if request.path not in SKIP_NEXT_URL_PATHS:
+            session['next_url'] = request.url
         return redirect('/login')
 
     return None
