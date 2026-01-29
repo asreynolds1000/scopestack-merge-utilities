@@ -162,6 +162,28 @@ See the [docs/](docs/) folder for comprehensive guides on every aspect of the to
 
 For ScopeStack platform support, contact [support@scopestack.io](mailto:support@scopestack.io).
 
+## 🛠️ Development
+
+### Setup Pre-commit Hook
+
+Install the pre-commit hook to prevent accidentally committing sensitive data:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+Or if using the [pre-commit](https://pre-commit.com/) framework:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### Run Security Check Manually
+
+```bash
+python3 scripts/check-sensitive-data.py
+```
+
 ---
 
 ## License

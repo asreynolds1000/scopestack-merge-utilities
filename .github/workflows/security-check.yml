@@ -1,0 +1,23 @@
+name: Security Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-sensitive-data:
+    runs-on: ubuntu-latest
+    name: Check for sensitive data
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run sensitive data check
+        run: python scripts/check-sensitive-data.py
