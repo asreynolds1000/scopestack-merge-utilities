@@ -8,8 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | | |
 |---|---|
-| **GitHub** | `asreynolds1000/scopestack-merge-utilities` |
+| **GitHub** | `asreynolds1000/scopestack-merge-utilities` (public) |
 | **Deploy** | Railway (auto-deploys on push to main) |
+| **License** | ScopeStack TOS/PSA/DPA |
 
 ## URL Structure
 
@@ -155,7 +156,7 @@ The app enforces secure session cookie settings in production:
 - `SESSION_COOKIE_HTTPONLY=True` - No JavaScript access to cookies
 - `SESSION_COOKIE_SAMESITE='Lax'` - CSRF protection
 
-`SECRET_KEY` is **required** in production (detected via `RAILWAY_ENVIRONMENT`). Local development uses a fallback with a warning.
+`SECRET_KEY` is **required** in production (detected via `RAILWAY_ENVIRONMENT`). Local development generates a random key per session (sessions won't persist across restarts).
 
 ### Authentication
 All routes require ScopeStack SSO authentication except:
@@ -182,6 +183,27 @@ Before making changes to authentication, session management, or user data storag
 - `app.py` - Session helpers (lines 34-95), OAuth routes
 - `auth_manager.py` - Token handling, PKCE flow
 - Any route using `get_session_access_token()` or `is_session_authenticated()`
+
+## Contributing
+
+### Setup Pre-commit Hook
+
+This repo is public. Install the pre-commit hook to prevent accidentally committing sensitive data:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+The hook checks for:
+- Real project IDs (use `123456` as placeholder)
+- API keys (OpenAI, Anthropic)
+- Real account slugs
+
+CI also runs this check on every push/PR.
+
+### Private Notes
+
+Use `CLAUDE.local.md` (gitignored) for internal learnings, real project IDs, and deployment-specific notes.
 
 ## Testing
 
