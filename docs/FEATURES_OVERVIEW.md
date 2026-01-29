@@ -138,9 +138,9 @@ Converted 103 fields:
 
 ### 4. Validate Command
 ```
-python3 scopestack_converter.py validate template.docx --project 101735
+python3 scopestack_converter.py validate template.docx --project {project_id}
 
-Validating template against project 101735...
+Validating template against project {project_id}...
 ════════════════════════════════════════════════
 
 📝 Template has 137 unique fields

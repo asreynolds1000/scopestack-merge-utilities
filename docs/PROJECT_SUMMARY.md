@@ -38,7 +38,7 @@ python scopestack_converter.py
 python scopestack_converter.py convert old_template.docx -o new_template.docx
 
 # With validation
-python scopestack_converter.py convert old_template.docx --project 101735
+python scopestack_converter.py convert old_template.docx --project {project_id}
 ```
 
 ### 2. `template_converter.py` - Conversion Engine
@@ -74,7 +74,7 @@ export SCOPESTACK_EMAIL="user@example.com"
 export SCOPESTACK_PASSWORD="password"
 
 # Fetch merge data
-python merge_data_fetcher.py 101735 2 merge_data.json
+python merge_data_fetcher.py {project_id} 2 merge_data.json
 ```
 
 ## Conversion Mappings

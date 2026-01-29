@@ -59,7 +59,7 @@ template_id = template['id']
 ```python
 # Generate document for a project
 document = fetcher.generate_project_document(
-    project_id="103063",
+    project_id="{project_id}",
     template_id=template_id,
     document_type='sow',
     generate_pdf=False,  # We want Word format to analyze
@@ -76,10 +76,10 @@ print(f"Download from: {document_url}")
 
 ```python
 # Fetch v1 merge data
-v1_data = fetcher.fetch_v1_merge_data("103063")
+v1_data = fetcher.fetch_v1_merge_data("{project_id}")
 
 # Fetch v2 merge data
-v2_data = fetcher.fetch_v2_merge_data("103063")
+v2_data = fetcher.fetch_v2_merge_data("{project_id}")
 
 # Save for analysis
 import json
@@ -311,7 +311,7 @@ python3 template_learning_workflow.py
 ```
 
 **Interactive prompts**:
-1. Enter Project ID: `103063`
+1. Enter Project ID: `{project_id}`
 2. Enter Template Name: `PS+MS Template`
 
 **What happens**:

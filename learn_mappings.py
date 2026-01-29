@@ -13,7 +13,7 @@ This tool:
 5. Generates mapping rules for template_converter.py
 
 Usage:
-    python3 learn_mappings.py --project 103063
+    python3 learn_mappings.py --project 123456
 """
 
 from merge_data_fetcher import MergeDataFetcher

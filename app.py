@@ -26,14 +26,15 @@ from template_validator import TemplateValidator
 app = Flask(__name__)
 
 # Security: SECRET_KEY must be set in production
-# Only allow fallback for local development (when running directly)
+# Only allow random fallback for local development
 _secret_key = os.environ.get('SECRET_KEY')
 if not _secret_key:
     if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('PRODUCTION'):
         raise ValueError("SECRET_KEY environment variable must be set in production")
-    # Local development fallback
-    _secret_key = 'dev-secret-key-for-local-development-only'
-    print("⚠️  WARNING: Using development SECRET_KEY. Set SECRET_KEY env var for production.")
+    # Local development: generate random key (sessions won't persist across restarts)
+    import secrets
+    _secret_key = secrets.token_hex(32)
+    print("⚠️  WARNING: Using random SECRET_KEY (sessions won't persist). Set SECRET_KEY env var for production.")
 
 app.secret_key = _secret_key
 
@@ -2809,6 +2810,8 @@ def cleanup_files():
 @app.route('/api/debug/logs', methods=['GET', 'DELETE'])
 def get_debug_logs():
     """Get or clear API debug logs for troubleshooting"""
+    if not is_session_authenticated():
+        return jsonify({'error': 'Authentication required'}), 401
     if request.method == 'DELETE':
         # Clear logs
         try:
@@ -2833,6 +2836,8 @@ def get_debug_logs():
 @app.route('/api/debug/logs/clear', methods=['POST'])
 def clear_debug_logs():
     """Clear all API debug logs"""
+    if not is_session_authenticated():
+        return jsonify({'error': 'Authentication required'}), 401
     try:
         api_logger.clear()
         return jsonify({'success': True, 'message': 'Logs cleared'})

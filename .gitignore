@@ -31,10 +31,11 @@ temp/
 session_data/
 document_cache/
 learned_mappings_db.json
-examples/*.docx
-examples/*.htm
-examples/*_files/
+examples/
 
 # Keep temp folder but ignore contents
 temp/*
 !temp/.gitkeep
+
+# Local-only Claude Code instructions (not for public repo)
+CLAUDE.local.md

@@ -59,7 +59,7 @@ Step 3: Review Mappings       Step 4: Output
 After getting the template, you're offered to learn:
 
 ```
-Project ID: [______102983_______]  (optional)
+Project ID: [______{project_id}_______]  (optional)
 
 [📚 Learn & Continue]  [Skip Learning →]
 ```
@@ -418,7 +418,7 @@ conversionState = {
    - Select "Professional Services Template V1 (ID: 1822)"
 
 3. **Proceed to Step 2**
-   - Enter project ID: "102983"
+   - Enter project ID: "{project_id}"
    - Click "📚 Learn & Continue"
    - System learns 42 mappings
    - Shows progress

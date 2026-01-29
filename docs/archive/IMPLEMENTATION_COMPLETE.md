@@ -166,7 +166,7 @@ conversionState = {
 - Click "Load Templates"
 - Select "Professional Services Template V1 (ID: 1822)"
 
-**Step 2**: Enter project ID "102983"
+**Step 2**: Enter project ID "{project_id}"
 - Click "📚 Learn & Continue"
 - System learns 42 mappings
 
@@ -247,7 +247,7 @@ Save to Database (learn as you go)
       "v2_field": "{project.project_name}",
       "confidence_score": 8,
       "last_used": "2026-01-17",
-      "projects": ["102983", "101735"],
+      "projects": ["{project_id}", "{project_id}"],
       "is_override": false
     }
   }

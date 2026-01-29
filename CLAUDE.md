@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | | |
 |---|---|
-| **GitHub** | `asreynolds1000/scopestack-merge-utilities` (private) |
+| **GitHub** | `asreynolds1000/scopestack-merge-utilities` |
 | **Deploy** | Railway (auto-deploys on push to main) |
 
 ## URL Structure
@@ -37,7 +37,7 @@ python3 scopestack_converter.py convert "template.docx" -o "output.docx"
 python3 scopestack_converter.py analyze "template.docx"
 
 # CLI: Validate against live project
-python3 scopestack_converter.py validate "template.docx" --project 101735
+python3 scopestack_converter.py validate "template.docx" --project {project_id}
 
 # Authentication management
 python3 auth_manager.py login    # Store credentials
@@ -252,59 +252,3 @@ The Merge Data Viewer (`/data-viewer`) uses React (via CDN) with a Miller Column
 - `OAUTH_REDIRECT_URI` must be explicitly set in production (Railway terminates SSL, so auto-detection gets `http://`)
 - `SECRET_KEY` required for Flask sessions to persist PKCE state across redirect
 
-## Recent Learnings
-
-### State Management in Data Viewer (2026-01-21)
-When clicking on dynamically generated array items (index > 0), the detail pane didn't appear because `selectedData` was derived from `structure[selectedPath]`, but only `[0]` entries exist in the structure. Fixed by storing `selectedData` directly in state when items are clicked.
-
-### OAuth Redirect URI (2026-01-21)
-Railway terminates SSL at the load balancer, so `request.host_url` returns `http://` instead of `https://`. Always set `OAUTH_REDIRECT_URI` explicitly with the `https://` scheme for production deployments.
-
-### App Restructuring (2026-01-21)
-Restructured app with new homepage and template inheritance:
-- Homepage at `/` with tool cards for Converter and Data Viewer
-- Converter moved to `/converter`, Data Viewer to `/data-viewer`
-- Shared components extracted: auth_bar, login_modal, settings_modal
-- Base template (`base.html`) with common CSS, JS, and auth handling
-- 301 redirect from `/merge-data-viewer` to `/data-viewer` for backwards compatibility
-
-### Codebase Cleanup (2026-01-21)
-- Archived old planning docs to `docs/archive/` (MAIN_PLAN.md, COMPLETE_WORKFLOW.md, etc.)
-- Removed unused experimental files (improved_field_replacer.py, template_learning_workflow.py)
-- Fixed port references in docs (5000 → 5001)
-
-### Auth Simplification (2026-01-22)
-- Removed dual auth (Basic Auth + OAuth) in favor of ScopeStack SSO only
-- Unauthenticated users see `/login` page, then redirect to destination after OAuth
-- Removed email/password login option - SSO is the only auth method
-- Replaced "Full Data" checkbox with dropdown select for better UX (page reload is more expected)
-
-### Railway CLI Linked (2026-01-22)
-Railway CLI is now linked to this project. Use `railway status` and `railway logs -n 20` to check deployments.
-
-### Template Converter Hidden (2026-01-22)
-Removed Template Converter from homepage and nav bar. Route `/converter` still works via direct URL access.
-
-### Session-Based Auth Fix (2026-01-21)
-**Critical security fix**: OAuth tokens were stored in a shared server-side file (`~/.scopestack/tokens.json`), causing all users to share the same authentication. When User A logged in, User B visiting the site would be authenticated as User A.
-
-**Root cause**: `AuthManager` was designed for CLI usage (single user) but was used unchanged in the web app (multi-user).
-
-**Fix**:
-- Added `save_to_file=False` parameter to `exchange_code_for_tokens()` for web usage
-- Added session-based helper methods to `AuthManager`: `is_token_data_expired()`, `refresh_token_data()`, `get_valid_access_token()`, `get_account_info_from_tokens()`
-- Created helper functions in `app.py`: `get_session_tokens()`, `set_session_tokens()`, `clear_session_tokens()`, `is_session_authenticated()`, `get_session_access_token()`, `get_session_account_info()`
-- Replaced all `auth_manager.is_authenticated()` → `is_session_authenticated()`
-- Replaced all `auth_manager.get_access_token()` → `get_session_access_token()`
-- Tokens now stored in Flask `session` (per-browser signed cookie)
-
-**Lesson**: When converting CLI tools to web apps, audit all file-based storage for user data. Use `/threat-modeler` skill for security review before deploying multi-user apps.
-
-### AI Settings Now Per-User (2026-01-21)
-Extended the session-based pattern to AI settings:
-- AI API keys stored in `session['ai_api_keys']` (per-user)
-- AI settings (enabled/provider/iterations) stored in `session['ai_settings']` (per-user)
-- Added missing endpoints: `/api/ai/key-status`, `/api/ai/save-key`
-- Updated all `auth_manager.get_ai_api_key()` → `get_session_ai_api_key()`
-
-Each user now has their own AI configuration that doesn't affect other users.

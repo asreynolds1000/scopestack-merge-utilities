@@ -639,7 +639,7 @@ def main():
         print("\nUsage:")
         print("  python merge_data_fetcher.py <project_id> [version] [output_file]")
         print("\nExample:")
-        print("  python merge_data_fetcher.py 101735 2 merge_data.json")
+        print("  python merge_data_fetcher.py {project_id} 2 merge_data.json")
         print("\nAuthentication (choose one method):")
         print("  1. Token: export SCOPESTACK_TOKEN='your_token_here'")
         print("  2. Credentials: export SCOPESTACK_EMAIL='user@example.com'")

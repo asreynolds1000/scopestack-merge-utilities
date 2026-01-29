@@ -28,7 +28,7 @@ def test_v1_merge_data():
     fetcher.authenticate(token=token)
 
     # Test with a project ID
-    project_id = input("Enter project ID (e.g., 103063): ").strip()
+    project_id = input("Enter project ID (e.g., 123456): ").strip()
 
     print("\n" + "="*80)
     print("Fetching v1 merge data...")

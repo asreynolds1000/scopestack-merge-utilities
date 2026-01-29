@@ -1,6 +1,10 @@
-# ScopeStack Template Converter
+# ScopeStack Merge Utilities
 
-Automates the conversion of Microsoft Word Mail Merge templates to ScopeStack's DocX Templater format.
+Official tools for working with ScopeStack merge data and document templates. Developed and maintained by [ScopeStack](https://scopestack.io).
+
+**Features:**
+- **Template Converter** - Convert Mail Merge templates to DocX Templater format
+- **Merge Data Viewer** - Browse and explore merge data with a Miller Columns UI
 
 ## 🚀 Quick Start
 
@@ -18,7 +22,7 @@ python3 scopestack_converter.py convert "your_template.docx"
 ## 📁 Project Structure
 
 ```
-ScopeStack-doc-converter/
+scopestack-merge-utilities/
 ├── app.py                      # Web server
 ├── scopestack_converter.py     # CLI tool
 ├── template_converter.py       # Conversion engine
@@ -26,21 +30,10 @@ ScopeStack-doc-converter/
 ├── auth_manager.py             # OAuth2 authentication
 ├── requirements.txt            # Dependencies
 ├── templates/                  # Web UI templates
-│   └── index.html
-├── docs/                       # Documentation
-│   ├── START_HERE.md          # 👈 Start here!
-│   ├── WEB_INTERFACE.md       # Web guide
-│   ├── QUICKSTART.md          # CLI guide
-│   ├── AUTHENTICATION.md      # Auth guide
-│   ├── FEATURES_OVERVIEW.md   # Complete features
-│   ├── PROJECT_SUMMARY.md     # Architecture
-│   └── WEB_INTERFACE_SUMMARY.md
-├── examples/                   # Example files
-│   ├── sample old merge template.docx
-│   ├── Example Tag template.docx
-│   ├── converted_output.docx
-│   └── Example merge data v2.htm
-└── temp/                       # Temporary files
+└── docs/                       # Documentation
+    ├── START_HERE.md          # 👈 Start here!
+    ├── QUICKSTART.md          # CLI guide
+    └── AUTHENTICATION.md      # Auth guide
 ```
 
 ## 📖 Documentation
@@ -92,23 +85,21 @@ python3 scopestack_converter.py convert "examples/sample old merge template.docx
 
 ### Validate Against Project
 ```bash
-export SCOPESTACK_EMAIL="your@email.com"
-export SCOPESTACK_PASSWORD="password"
-python3 scopestack_converter.py validate "template.docx" --project 101735
+python3 scopestack_converter.py validate "template.docx" --project {project_id}
 ```
 
 ## 🔐 Authentication
 
-**New! Persistent Authentication** - Login once and stay authenticated across sessions.
+Uses **ScopeStack SSO** (OAuth2 with PKCE) for secure authentication.
 
 ### Web Interface
-1. Click **"Login"** in the authentication bar
-2. Enter your ScopeStack email and password
-3. Tokens are automatically stored and refreshed
+1. Click **"Login with ScopeStack"**
+2. Authenticate via ScopeStack SSO
+3. Tokens are stored in your browser session
 
 ### CLI Tool
 ```bash
-# Login (stores tokens in ~/.scopestack/tokens.json)
+# Login via OAuth (opens browser)
 python3 auth_manager.py login
 
 # Check authentication status
@@ -118,12 +109,19 @@ python3 auth_manager.py status
 python3 auth_manager.py logout
 ```
 
-**Benefits:**
-- No need to re-enter credentials for each validation
-- Automatic token refresh
-- Secure OAuth2 implementation
+### Environment Variables
 
-See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for complete guide.
+Required for ScopeStack API access:
+```bash
+SCOPESTACK_CLIENT_ID=your_client_id
+SCOPESTACK_CLIENT_SECRET=your_client_secret
+```
+
+For production deployments:
+```bash
+SECRET_KEY=random_secret_for_flask_sessions
+OAUTH_REDIRECT_URI=https://your-domain.com/oauth/callback
+```
 
 ## 📊 Conversion Examples
 
@@ -162,6 +160,12 @@ field:endIf     →  {/field}
 
 See the [docs/](docs/) folder for comprehensive guides on every aspect of the tool.
 
+For ScopeStack platform support, contact [support@scopestack.io](mailto:support@scopestack.io).
+
 ---
 
-Built with ❤️ for easier ScopeStack template management
+## License
+
+This software is provided by ScopeStack and subject to the [Terms of Service](https://scopestack.io/terms), [Professional Services Agreement](https://scopestack.io/professional-services-agreement), and [Data Processing Addendum](https://scopestack.io/data-processing-addendum).
+
+© 2026 ScopeStack

@@ -124,7 +124,7 @@ Fetch v1 merge data for a project using the API endpoint.
 
 **Example**:
 ```python
-v1_data = fetcher.fetch_v1_merge_data("103063")
+v1_data = fetcher.fetch_v1_merge_data("{project_id}")
 
 # Save to file
 import json
@@ -150,12 +150,12 @@ Unified method to fetch merge data for either version.
 
 **Example - v1**:
 ```python
-v1_data = fetcher.fetch_merge_data("103063", version=1)
+v1_data = fetcher.fetch_merge_data("{project_id}", version=1)
 ```
 
 **Example - v2**:
 ```python
-v2_data = fetcher.fetch_merge_data("103063", version=2)
+v2_data = fetcher.fetch_merge_data("{project_id}", version=2)
 ```
 
 **API Endpoints**:
@@ -193,7 +193,7 @@ if client:
     print(f"Client: {client['attributes']['name']}")
 
 # Fetch v1 merge data
-project_id = "103063"
+project_id = "{project_id}"
 v1_data = fetcher.fetch_v1_merge_data(project_id)
 
 if v1_data:

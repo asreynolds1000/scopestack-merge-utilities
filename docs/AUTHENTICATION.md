@@ -294,7 +294,7 @@ Now requires authentication via stored tokens.
 **Request Body**:
 ```json
 {
-  "project_id": "101735"
+  "project_id": "{project_id}"
 }
 ```
 
@@ -313,7 +313,7 @@ Note: Email and password no longer required - uses stored authentication!
 
 ```json
 {
-  "project_id": "101735",
+  "project_id": "{project_id}",
   "email": "your.email@company.com",
   "password": "your-password"
 }
@@ -323,7 +323,7 @@ Note: Email and password no longer required - uses stored authentication!
 
 ```json
 {
-  "project_id": "101735"
+  "project_id": "{project_id}"
 }
 ```
 

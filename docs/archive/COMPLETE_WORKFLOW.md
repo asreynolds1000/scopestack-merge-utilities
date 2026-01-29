@@ -197,7 +197,7 @@ Located after "Learn Field Mappings" section in the web interface.
 🚀 Starting complete workflow...
 1️⃣ Downloading v1 template 1822...
    ✓ Downloaded: ScopeStack_PS_Template__23_(2).docx
-2️⃣ Learning mappings from project 102983...
+2️⃣ Learning mappings from project {project_id}...
    ✓ Learned 42 mappings
 3️⃣ Converting template to v2 format...
    ✓ Converted to: ScopeStack_PS_Template__23_(2)_v2.docx
@@ -318,13 +318,13 @@ Next Steps:
 
 1. Click "📋 Load Templates"
 2. Select "Professional Services Template V1 (ID: 1822)"
-3. Enter project ID: "102983"
+3. Enter project ID: "{project_id}"
 4. Enter name: "Professional Services Template V2 - Test"
 5. Click "🚀 Run Complete Workflow"
 6. Wait ~30 seconds for completion
 7. Result: New template ID 6029 created
 8. Go to ScopeStack → Templates → ID 6029
-9. Generate document for project 102983
+9. Generate document for project {project_id}
 10. Compare with v1 output
 
 ### Example 2: Bulk Migration
@@ -339,7 +339,7 @@ curl -X POST http://localhost:5001/api/templates/convert-and-upload \
   -H "Content-Type: application/json" \
   -d '{
     "v1_template_id": "1822",
-    "project_id": "102983",
+    "project_id": "{project_id}",
     "new_template_name": "Template V2"
   }'
 ```

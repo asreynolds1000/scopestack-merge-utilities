@@ -842,7 +842,7 @@ This is about learning template conversion patterns, not merge data mappings
 
 ### Task D2: Nested Array Navigation Fix
 **Test**: After implementation
-1. Navigate to http://localhost:5000/merge-data-viewer.html?project=103063
+1. Navigate to http://localhost:5000/merge-data-viewer.html?project=123456
 2. Drill down to: Root › language_fields › language_fields[0] › phases › phases[1] › sentences
 3. Click on `sentences` (array with 8 items)
 4. **Verify next column appears** with:
@@ -852,7 +852,7 @@ This is about learning template conversion patterns, not merge data mappings
 5. Click on `sentences[0]`
 6. **Verify next column** shows the fields/contents of that sentence item
 7. **Backend verification**:
-   - Open http://localhost:5000/api/merge-data-structure/103063 in browser
+   - Open http://localhost:5000/api/merge-data-structure/123456 in browser
    - Search JSON for `"language_fields[0].phases[1].sentences"`
    - Verify `children` object is NOT empty
    - Should contain keys like `"language_fields[0].phases[1].sentences[0]"`, etc.
@@ -893,7 +893,7 @@ This is about learning template conversion patterns, not merge data mappings
 
 ### Task F: Structural Array Mapping
 **Test**: After implementation
-1. Navigate to http://localhost:5000/merge-data-viewer.html?project=103063
+1. Navigate to http://localhost:5000/merge-data-viewer.html?project=123456
 2. Click on an array item field: `language_fields[0].name`
 3. **Verify array detection**:
    - [ ] UI shows "Part of array: language_fields"
@@ -958,8 +958,8 @@ This is about learning template conversion patterns, not merge data mappings
 
 **Data Structure Extractor** (Task A verification):
 ```bash
-# Test with project 103063 (has language_fields array with 4 items)
-curl http://localhost:5000/api/merge-data-structure/103063 | jq '.v2_structure.language_fields'
+# Test with project 123456 (has language_fields array with 4 items)
+curl http://localhost:5000/api/merge-data-structure/123456 | jq '.v2_structure.language_fields'
 
 # Should show:
 # - "array_count": 4 (not 1)
@@ -971,7 +971,7 @@ curl http://localhost:5000/api/merge-data-structure/103063 | jq '.v2_structure.l
 ```
 
 **Merge Data Viewer** (Task B verification):
-1. Navigate to http://localhost:5000/merge-data-viewer.html?project=103063
+1. Navigate to http://localhost:5000/merge-data-viewer.html?project=123456
 2. Click on "language_fields" in V2 structure
 3. Open browser console and verify:
    - [ ] Console shows: "Array indices found: [0, 1, 2, 3]" (not just [0])

@@ -95,7 +95,7 @@ When you upload documents, the API returns:
 ```json
 {
   "success": true,
-  "project_id": "103063",
+  "project_id": "123456",
   "mappings_discovered": 25,
   "confirmed_mappings": 18,       // From document analysis
   "supplemental_mappings": 7,     // From pure value matching
@@ -200,7 +200,7 @@ class MappingDatabase:
 2. Login with ScopeStack credentials
 3. Go to "Learn Field Mappings" section
 4. Click "From Documents" tab
-5. Enter project ID (e.g., 103063)
+5. Enter project ID (e.g., 123456)
 6. Upload v1 template that has Mail Merge fields
 7. Upload the output document generated from that template
 8. Click "Upload & Learn Mappings"

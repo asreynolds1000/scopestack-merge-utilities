@@ -171,7 +171,7 @@ python3 scopestack_converter.py convert "client_proposal.docx"
 ### Use Case 2: Validate Before Converting
 ```bash
 # CLI:
-python3 scopestack_converter.py validate "template.docx" --project 101735
+python3 scopestack_converter.py validate "template.docx" --project {project_id}
 
 # Web: Use the validation form in the interface
 ```
@@ -186,7 +186,7 @@ done
 
 ### Use Case 4: Check What Fields Are Available
 ```bash
-python3 merge_data_fetcher.py 101735 2 merge_data.json
+python3 merge_data_fetcher.py {project_id} 2 merge_data.json
 less merge_data.json
 ```
 

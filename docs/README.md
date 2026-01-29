@@ -39,7 +39,7 @@ python scopestack_converter.py convert "sample old merge template.docx" -o "new_
 
 #### Validate and convert
 ```bash
-python scopestack_converter.py convert "sample old merge template.docx" --project 101735
+python scopestack_converter.py convert "sample old merge template.docx" --project {project_id}
 ```
 
 ## Format Conversion Reference
@@ -105,7 +105,7 @@ Fetches merge data from ScopeStack API to:
 export SCOPESTACK_TOKEN='your_token_here'
 
 # Fetch merge data for a project
-python merge_data_fetcher.py 101735 2 output.json
+python merge_data_fetcher.py {project_id} 2 output.json
 ```
 
 **Merge Data URL Pattern:**
@@ -152,7 +152,7 @@ To get your token:
 
 2. **Validate against a project** (optional but recommended)
    ```bash
-   python scopestack_converter.py validate "old_template.docx" --project 101735
+   python scopestack_converter.py validate "old_template.docx" --project {project_id}
    ```
    This checks if all fields exist in the project's merge data.
 
@@ -170,7 +170,7 @@ To get your token:
 
 1. **Fetch merge data for a project**
    ```bash
-   python merge_data_fetcher.py 101735 2 merge_data.json
+   python merge_data_fetcher.py {project_id} 2 merge_data.json
    ```
 
 2. **Review available fields**
@@ -181,7 +181,7 @@ To get your token:
 
 4. **Validate your template**
    ```bash
-   python scopestack_converter.py validate "new_template.docx" --project 101735
+   python scopestack_converter.py validate "new_template.docx" --project {project_id}
    ```
 
 ## Common Conversion Patterns

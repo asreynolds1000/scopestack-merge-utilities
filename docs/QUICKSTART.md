@@ -61,10 +61,10 @@ export SCOPESTACK_TOKEN="your_token_here"
 Once authenticated:
 
 ```bash
-python3 scopestack_converter.py validate "sample old merge template.docx" --project 101735
+python3 scopestack_converter.py validate "sample old merge template.docx" --project {project_id}
 ```
 
-Replace `101735` with your actual project ID.
+Replace `{project_id}` with your actual project ID.
 
 ## Interactive Mode
 
@@ -92,8 +92,8 @@ python3 scopestack_converter.py validate "client_template_converted.docx" --proj
 ### Fetch merge data for reference
 
 ```bash
-# Get merge data for project 101735
-python3 merge_data_fetcher.py 101735 2 merge_data.json
+# Get merge data for project {project_id}
+python3 merge_data_fetcher.py {project_id} 2 merge_data.json
 
 # View available fields
 cat merge_data.json | grep '"' | head -50

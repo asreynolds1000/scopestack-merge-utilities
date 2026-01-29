@@ -164,10 +164,10 @@ Examples:
   python scopestack_converter.py convert old_template.docx -o new_template.docx
 
   # Validate template against project
-  python scopestack_converter.py validate old_template.docx --project 101735
+  python scopestack_converter.py validate old_template.docx --project 123456
 
   # Full workflow: analyze, validate, and convert
-  python scopestack_converter.py convert old_template.docx --project 101735
+  python scopestack_converter.py convert old_template.docx --project 123456
 
 Authentication:
   Set SCOPESTACK_TOKEN environment variable:
